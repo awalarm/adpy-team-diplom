@@ -1,0 +1,22 @@
+name: Code style
+
+on: [pull_request, push]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Клонирование кода
+        uses: actions/checkout@v4
+
+      - name: Установка python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Установка flake8
+        run: pip install flake8
+
+      - name: Проверка кода
+        run: flake8 .
