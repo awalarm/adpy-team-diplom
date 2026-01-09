@@ -12,7 +12,7 @@ class Candidate(Base):
     first_name = sq.Column(sq.String, nullable=False)
     last_name = sq.Column(sq.String, nullable=False)
     age = sq.Column(sq.Integer, nullable=False)
-    gender = sq.Column(sq.String, nullable=False)
+    gender = sq.Column(sq.Integer, nullable=False)
     city = sq.Column(sq.String, nullable=False)
     profile_link = sq.Column(sq.String, nullable=False)
 
@@ -32,7 +32,7 @@ class User(Base):
     user_id = sq.Column(sq.Integer, primary_key=True)
     vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
     age = sq.Column(sq.Integer, nullable=False)
-    gender = sq.Column(sq.String, nullable=False)
+    gender = sq.Column(sq.Integer, nullable=False)
     city = sq.Column(sq.String, nullable=False)
 
 
