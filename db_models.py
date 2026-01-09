@@ -8,7 +8,7 @@ class Candidate(Base):
     __tablename__ = "candidates"
 
     candidate_id = sq.Column(sq.Integer, primary_key=True)
-    vk_id = sq.Column(sq.Integer, unique=True, nullable=False)
+    vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
     first_name = sq.Column(sq.String, nullable=False)
     last_name = sq.Column(sq.String, nullable=False)
     age = sq.Column(sq.Integer, nullable=False)
@@ -17,10 +17,10 @@ class Candidate(Base):
     profile_link = sq.Column(sq.String, nullable=False)
 
     favorites = relationship(
-        "User", secondary="users_to_favorites", backref="candidates"
+        "User", secondary="users_to_favorites", backref="favorite_candidates"
     )
     blacklist = relationship(
-        "User", secondary="users_to_blacklist", backref="candidates"
+        "User", secondary="users_to_blacklist", backref="blacklisted_candidates"
     )
 
 
@@ -28,7 +28,7 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = sq.Column(sq.Integer, primary_key=True)
-    vk_id = sq.Column(sq.Integer, unique=True, nullable=False)
+    vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
     age = sq.Column(sq.Integer, nullable=False)
     gender = sq.Column(sq.String, nullable=False)
     city = sq.Column(sq.String, nullable=False)
@@ -51,17 +51,13 @@ class Photo(Base):
 users_to_favorites = sq.Table(
     "users_to_favorites",
     Base.metadata,
-    sq.Column(
-        "candidates.candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
-    ),
-    sq.Column("users.user_id", sq.Integer, sq.ForeignKey("users.user_id")),
+    sq.Column("candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")),
+    sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
 )
 
 users_to_blacklist = sq.Table(
     "users_to_blacklist",
     Base.metadata,
-    sq.Column(
-        "candidates.candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
-    ),
-    sq.Column("users.user_id", sq.Integer, sq.ForeignKey("users.user_id")),
+    sq.Column("candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")),
+    sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
 )
