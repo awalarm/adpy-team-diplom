@@ -20,7 +20,9 @@ class Candidate(Base):
         "User", secondary="users_to_favorites", backref="favorite_candidates"
     )
     blacklist = relationship(
-        "User", secondary="users_to_blacklist", backref="blacklisted_candidates"
+        "User",
+        secondary="users_to_blacklist",
+        backref="blacklisted_candidates",
     )
 
 
@@ -51,13 +53,17 @@ class Photo(Base):
 users_to_favorites = sq.Table(
     "users_to_favorites",
     Base.metadata,
-    sq.Column("candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")),
+    sq.Column(
+        "candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
+    ),
     sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
 )
 
 users_to_blacklist = sq.Table(
     "users_to_blacklist",
     Base.metadata,
-    sq.Column("candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")),
+    sq.Column(
+        "candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
+    ),
     sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
 )
