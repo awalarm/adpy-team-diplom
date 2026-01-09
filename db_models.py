@@ -47,7 +47,7 @@ class Photo(Base):
     likes_count = sq.Column(sq.Integer, nullable=False)
     photo_link = sq.Column(sq.String, nullable=False)
 
-    candidates = relationship("Candidates", backref="photo")
+    candidates = relationship("Candidate", backref="photos")
 
 
 users_to_favorites = sq.Table(
