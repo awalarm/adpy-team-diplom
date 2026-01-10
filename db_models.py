@@ -11,9 +11,6 @@ class Candidate(Base):
     vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
     first_name = sq.Column(sq.String, nullable=False)
     last_name = sq.Column(sq.String, nullable=False)
-    age = sq.Column(sq.Integer, nullable=False)
-    gender = sq.Column(sq.Integer, nullable=False)
-    city = sq.Column(sq.String, nullable=False)
     profile_link = sq.Column(sq.String, nullable=False)
 
     favorites = relationship(
@@ -44,10 +41,21 @@ class Photo(Base):
     candidates_id = sq.Column(
         sq.Integer, sq.ForeignKey("candidates.candidate_id"), nullable=False
     )
-    likes_count = sq.Column(sq.Integer, nullable=False)
     photo_link = sq.Column(sq.String, nullable=False)
 
     candidates = relationship("Candidate", backref="photos")
+
+
+class Blacklist(Base):
+    __tablename__ = "blacklist"
+
+    blacklist_id = sq.Column(sq.Integer, primary_key=True)
+    vk_candidate_id = sq.Column(sq.Integer, unique=True, nullable=False)
+    user_id = sq.Column(
+        sq.Integer, sq.ForeignKey("users.user_id"), nullable=False
+    )
+
+    user = relationship("User", backref="blacklist")
 
 
 users_to_favorites = sq.Table(
@@ -59,11 +67,6 @@ users_to_favorites = sq.Table(
     sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
 )
 
-users_to_blacklist = sq.Table(
-    "users_to_blacklist",
-    Base.metadata,
-    sq.Column(
-        "candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
-    ),
-    sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
-)
+
+def create_tables(engine):
+    Base.metadata.create_all(engine)
