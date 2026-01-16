@@ -683,7 +683,7 @@ def run_bot(adapter):
                     # Кнопка "Нравится"
                     elif text == "❤️ Нравится" or "нравится" in text.lower():
                         # Находим текущего кандидата (view_status=2)
-                        current_candidate =(
+                        current_candidate = (
                             adapter.session.query(Candidate)
                             .filter(
                                 Candidate.searcher_vk_id == user_id,
