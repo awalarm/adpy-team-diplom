@@ -1013,16 +1013,17 @@ def run_bot(adapter):
                             adapter.save_or_update_user(user_data)
                             del edit_user_data[user_id]
 
+                            gender_text = 'Мужской' if user_data.get(
+                                'gender') == 2 else 'Женский'
+
                             write_msg(
                                 user_id,
-                                f"✅ Город обновлен "
-                                f"на {city_name}!\n\n"
+                                f"✅ Город обновлен на {city_name}!\n"
+                                f"\n"
                                 f"Новые параметры поиска:\n"
-                                f"• Возраст: "
-                                f"{user_data.get('age', 'не указан')} лет\n"
-                                f"• Пол: "
-                                f"{'Мужской' if user_data.get('gender') == 2 
-                                else 'Женский'}\n"
+                                f"• Возраст:"
+                                f" {user_data.get('age', 'не указан')} лет\n"
+                                f"• Пол: {gender_text}\n"
                                 f"• Город: {city_name}",
                                 get_main_keyboard(),
                             )
@@ -1205,20 +1206,20 @@ def run_bot(adapter):
                                 .count()
                             )
 
+                            gender_text = 'Мужской' if existing_user.get(
+                                'gender') == 2 else 'Женский'
+                            age_text = existing_user.get('age', 'не указан')
+                            city_text = existing_user.get('city', 'не указан')
+
                             message = (
                                 f"📋 Статистика:\n"
                                 f"• Непросмотренных кандидатов: {unviewed_count}\n"
                                 f"• В избранном: {favorites_count}\n"
                                 f"• В черном списке: {blacklist_count}\n\n"
                                 f"📊 Параметры поиска:\n"
-                                f"• Возраст: {existing_user.get('age',
-                                                                'не указан')} лет\n"
-                                f"• Пол: "
-                                f"{'Мужской' 
-                                if existing_user.get('gender') == 2 
-                                else 'Женский'}\n"
-                                f"• Город: {existing_user.get('city', 
-                                                              'не указан')}"
+                                f"• Возраст: {age_text} лет\n"
+                                f"• Пол: {gender_text}\n"
+                                f"• Город: {city_text}"
                             )
                             write_msg(
                                 user_id, message, get_profiles_keyboard()
