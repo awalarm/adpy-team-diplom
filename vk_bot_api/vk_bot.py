@@ -682,7 +682,7 @@ def run_bot(adapter):
                             temp_user_data[user_id]['city_id'] = city_id
                             write_msg(user_id, "Введите пол (1-женский, "
                                                "2-мужской):")
-                        except (ValueError, KeyError, Exception) as e:
+                        except (ValueError, KeyError, Exception):
                             write_msg(
                                 user_id,
                                 "Город не найден. Попробуйте еще раз:"
@@ -740,7 +740,7 @@ def run_bot(adapter):
                           edit_user_data[user_id]['step'] == 'edit_age'):
                         if text.isdigit() and 18 <= int(text) <= 100:
                             # Удаляем существующих кандидатов
-                            deleted_count = delete_candidates_on_parameter_change(
+                            delete_candidates_on_parameter_change(
                                 user_id)
 
                             # Обновляем возраст
@@ -805,7 +805,7 @@ def run_bot(adapter):
                                       f"• Пол: {'Мужской' if user_data.get('gender') == 2 else 'Женский'}\n"
                                       f"• Город: {city_name}",
                                       get_main_keyboard())
-                        except(KeyError, ValueError) as e:
+                        except (KeyError, ValueError):
                             write_msg(user_id,
                                       "Город не найден. Попробуйте еще раз:")
 
