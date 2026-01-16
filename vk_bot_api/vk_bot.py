@@ -948,17 +948,16 @@ def run_bot(adapter):
                             adapter.save_or_update_user(user_data)
                             del edit_user_data[user_id]
 
+                            gender = 'Мужской' if user_data[
+                                                'gender'] == 2 else 'Женский'
+
                             write_msg(
                                 user_id,
-                                f"✅ Возраст обновлен на"
-                                f" {text} лет!\n\n"
-                                f"Новые параметры поиска:\n"
-                                f"• Возраст: {text} лет\n"
-                                f"• Пол: "
-                                f"{'Мужской' if user_data.get('gender') == 2 
-                                else 'Женский'}\n"
-                                f"• Город: {user_data.get('city', 
-                                                          'не указан')}",
+                                f"✅ Регистрация завершена!\n"
+                                f"Возраст: {user_data['age']} лет\n"
+                                f"Город: {user_data['city']}\n"
+                                f"Пол: {gender}\n\n"
+                                f"Нажмите '👀 Смотреть анкеты'",
                                 get_main_keyboard(),
                             )
                         else:
