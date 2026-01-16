@@ -1,5 +1,5 @@
 max-line-length = 120
-ignore =
+ignore = 
     W391,  # blank line at end of file
     E501,  # line too long
     F841,  # local variable is assigned but never used
@@ -7,13 +7,24 @@ ignore =
     E125,  # continuation line
     E722,  # bare except
     E712,  # comparison to False
-per-file-ignores =
-    # Игнорировать конкретные ошибки в конкретных файлах
-    ./vk_bot_api/vk_bot.py:E501,F841,E125,E722
-exclude =
+    F403,  # unable to detect undefined names
+    F405,  # may be undefined
+    F821,  # undefined name
+    E203,  # whitespace before ':'
+    E741,  # ambiguous variable name
+    E302,  # expected 2 blank lines
+    E303,  # too many blank lines
+    W293,  # blank line contains whitespace
+    W291,  # trailing whitespace
+exclude = 
     .git,
     __pycache__,
+    *.pyc,
+    *.pyo,
     .venv,
     venv,
     env,
-    .env
+    .env,
+    */site-packages/*,
+    */dist/*,
+    */build/*
