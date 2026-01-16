@@ -10,7 +10,7 @@ from vk_bot_api.tokens import token_vk, ACCESS_TOKEN_VK
 from vk_bot_api.city_id import get_city_id
 from vk_bot_api.vk_people import search_vk_users
 from vk_bot_api.vk_photos import get_candidate_photos
-from database.adapter import DatabaseAdapter
+# from database.adapter import DatabaseAdapter
 from database.db_models import Candidate, Photo
 
 
@@ -101,7 +101,8 @@ def run_bot(adapter):
                     deleted_count += 1
 
                 adapter.session.commit()
-                print(f"Удалено {deleted_count} кандидатов для пользователя {user_id}")
+                print(
+                    f"Удалено {deleted_count} кандидатов для пользователя {user_id}")
 
             return deleted_count
         except Exception as e:
@@ -451,7 +452,7 @@ def run_bot(adapter):
         """Показать текущие настройки пользователя"""
         user_data = adapter.get_user_data(user_id)
         if user_data:
-            candidates_to_delete = get_candidates_count_to_delete(user_id)
+            get_candidates_count_to_delete(user_id)
 
             message = (
                 f"⚙️ Текущие параметры поиска:\n\n"
@@ -674,20 +675,22 @@ def run_bot(adapter):
 
                     # Регистрация: город
                     elif user_id in temp_user_data and 'age' in temp_user_data[
-                        user_id] and 'city' not in temp_user_data[user_id]:
+                            user_id] and 'city' not in temp_user_data[user_id]:
                         try:
                             city_id, city_name = get_city_id(text)
                             temp_user_data[user_id]['city'] = city_name
                             temp_user_data[user_id]['city_id'] = city_id
                             write_msg(user_id, "Введите пол (1-женский, "
                                                "2-мужской):")
-                        except:
-                            write_msg(user_id, "Город не найден. "
-                                               "Попробуйте еще раз:")
+                        except (ValueError, KeyError, Exception) as e:
+                            write_msg(
+                                user_id,
+                                "Город не найден. Попробуйте еще раз:"
+                            )
 
                     # Регистрация: пол и сохранение
                     elif user_id in temp_user_data and 'age' in temp_user_data[
-                        user_id] and 'city' in temp_user_data[user_id]:
+                            user_id] and 'city' in temp_user_data[user_id]:
                         if text in ['1', '2']:
                             user_data = {
                                 "vk_user_id": user_id,
@@ -737,7 +740,8 @@ def run_bot(adapter):
                           edit_user_data[user_id]['step'] == 'edit_age'):
                         if text.isdigit() and 18 <= int(text) <= 100:
                             # Удаляем существующих кандидатов
-                            deleted_count = delete_candidates_on_parameter_change(user_id)
+                            deleted_count = delete_candidates_on_parameter_change(
+                                user_id)
 
                             # Обновляем возраст
                             user_data = adapter.get_user_data(user_id)
@@ -757,10 +761,11 @@ def run_bot(adapter):
 
                     # Редактирование: пол
                     elif (user_id in edit_user_data
-                          and edit_user_data[user_id]['step'] == 'edit_gender'):
+                          and edit_user_data[user_id][
+                              'step'] == 'edit_gender'):
                         if text in ['1', '2']:
                             # Удаляем существующих кандидатов
-                            deleted_count = delete_candidates_on_parameter_change(user_id)
+                            delete_candidates_on_parameter_change(user_id)
 
                             # Обновляем пол
                             user_data = adapter.get_user_data(user_id)
@@ -784,7 +789,7 @@ def run_bot(adapter):
                         try:
                             city_id, city_name = get_city_id(text)
                             # Удаляем существующих кандидатов
-                            deleted_count = delete_candidates_on_parameter_change(user_id)
+                            delete_candidates_on_parameter_change(user_id)
 
                             # Обновляем город
                             user_data = adapter.get_user_data(user_id)
@@ -800,8 +805,9 @@ def run_bot(adapter):
                                       f"• Пол: {'Мужской' if user_data.get('gender') == 2 else 'Женский'}\n"
                                       f"• Город: {city_name}",
                                       get_main_keyboard())
-                        except:
-                            write_msg(user_id, "Город не найден. Попробуйте еще раз:")
+                        except(KeyError, ValueError) as e:
+                            write_msg(user_id,
+                                      "Город не найден. Попробуйте еще раз:")
 
                     # Кнопка "Следующий" (кандидаты)
                     elif ('следующий' in text.lower()
