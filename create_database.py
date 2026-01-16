@@ -29,4 +29,3 @@ def create_database(db_name, user, password, host="localhost", port=5432):
         print(f"База данных '{db_name}'уже существует")
     except Exception as e:
         print(f"Ошибка: {e}")
-
