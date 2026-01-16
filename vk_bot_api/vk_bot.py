@@ -888,8 +888,9 @@ def run_bot(adapter):
                                 f"Возраст: {user_data['age']} лет\n"
                                 f"Город: {user_data['city']}\n"
                                 f"Пол: "
-                                f"{'Мужской' if user_data['gender'] == 2 
-                                else 'Женский'}\n\n"
+                                f"{'Мужской' 
+                                if user_data['gender'] == 2 else 
+                                'Женский'}\n\n"
                                 f"Нажмите '👀 Смотреть анкеты'",
                                 get_main_keyboard(),
                             )
