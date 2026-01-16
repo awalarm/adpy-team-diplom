@@ -569,7 +569,7 @@ def run_bot(adapter):
         else:
             write_msg(
                 user_id,
-                "У вас еще нет настроек поиска. " 
+                "У вас еще нет настроек поиска."
                 "Сначала зарегистрируйтесь.",
                 get_start_keyboard(),
             )
@@ -657,7 +657,7 @@ def run_bot(adapter):
                             temp_user_data[user_id] = {}
                             write_msg(
                                 user_id,
-                                "Введите возраст кандидата " 
+                                "Введите возраст кандидата"
                                 "(например: 25):",
                             )
 
@@ -671,8 +671,8 @@ def run_bot(adapter):
                         if not existing_user:
                             write_msg(
                                 user_id,
-                                "Сначала настройте" 
-                                " параметры поиска!",
+                                "Сначала настройте"
+                                "параметры поиска!",
                                 get_start_keyboard(),
                             )
                             continue
@@ -683,7 +683,7 @@ def run_bot(adapter):
                     # Кнопка "Нравится"
                     elif text == "❤️ Нравится" or "нравится" in text.lower():
                         # Находим текущего кандидата (view_status=2)
-                        current_candidate = (
+                        current_candidate =(
                             adapter.session.query(Candidate)
                             .filter(
                                 Candidate.searcher_vk_id == user_id,
@@ -769,7 +769,7 @@ def run_bot(adapter):
                         if favorites_count == 0:
                             write_msg(
                                 user_id,
-                                "❤️ В вашем избранном "
+                                "❤️ В вашем избранном"
                                 "пока никого нет 😢",
                                 get_main_keyboard(),
                             )
@@ -855,7 +855,7 @@ def run_bot(adapter):
                             temp_user_data[user_id]["city_id"] = city_id
                             write_msg(
                                 user_id,
-                                "Введите пол (1-женский, " 
+                                "Введите пол (1-женский, "
                                 "2-мужской):",
                             )
                         except (ValueError, KeyError, Exception):
