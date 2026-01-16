@@ -882,15 +882,15 @@ def run_bot(adapter):
                             adapter.save_or_update_user(user_data)
                             del temp_user_data[user_id]
 
+                            gender_text = 'Мужской' if user_data[
+                                                'gender'] == 2 else 'Женский'
+
                             write_msg(
                                 user_id,
                                 f"✅ Регистрация завершена!\n"
                                 f"Возраст: {user_data['age']} лет\n"
                                 f"Город: {user_data['city']}\n"
-                                f"Пол: "
-                                f"{'Мужской' 
-                                if user_data['gender'] == 2 else 
-                                'Женский'}\n\n"
+                                f"Пол: {gender_text}\n\n"
                                 f"Нажмите '👀 Смотреть анкеты'",
                                 get_main_keyboard(),
                             )
