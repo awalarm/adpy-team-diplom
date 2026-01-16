@@ -21,7 +21,7 @@ def search_vk_users(token, city_id, age_from, age_to, sex):
     candidates = []
     for user in data.get('response', {}).get('items', []):
         # Только открытые профили
-        if user.get('is_closed') == False:
+        if user.get('is_closed') is False:
             candidates.append({
                 'id': user['id'],  # vk_user_id
                 'first_name': user['first_name'],
