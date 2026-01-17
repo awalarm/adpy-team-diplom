@@ -1,4 +1,4 @@
-from db_models import User, Candidate, Photo
+from database.db_models import User, Candidate, Photo
 from sqlalchemy.orm import Session
 import sqlalchemy as sq
 from typing import Optional, List, Dict, Any
