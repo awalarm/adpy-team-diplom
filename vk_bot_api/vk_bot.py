@@ -6,7 +6,7 @@ import time
 import requests
 import sys
 
-from vk_bot_api.tokens import token_vk, ACCESS_TOKEN_VK
+from config import token_vk, ACCESS_TOKEN_VK
 from vk_bot_api.requests_api import search_vk_users
 from vk_bot_api.requests_api import get_candidate_photos
 
