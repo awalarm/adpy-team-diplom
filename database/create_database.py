@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2 import sql, OperationalError
+from psycopg2 import sql
 
 
 def create_database(db_name, user, password, host="localhost", port=5432):
