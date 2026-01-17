@@ -1,7 +1,7 @@
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 from config import DSN
-from db_models import create_tables
+from database.db_models import create_tables
 
 engine = sqlalchemy.create_engine(DSN)
 
