@@ -1,182 +1,423 @@
-from models import User, Candidate, Photo, users_to_blacklist
-from sqlalchemy.orm import joinedload, Session
+from db_models import User, Candidate, Photo
+from sqlalchemy.orm import Session
 import sqlalchemy as sq
+from typing import Optional, List, Dict, Any
 
 
 class DatabaseAdapter:
+    # Константы для статусов
+    STATUS_NOT_VIEWED = 0
+    STATUS_VIEWED = 1
+    STATUS_CURRENT = 2
+    STATUS_INACTIVE = 3
 
     def __init__(self, session: Session):
         self.session = session
 
-    def save_or_update_user(self, user_data: dict):
+    def save_or_update_user(self, user_data: dict) -> User:
         """Сохранить или обновить данные пользователя"""
-        user = (
-            self.session.query(User).filter(
-                User.vk_user_id == user_data["id"]
-            ).first()
-        )
+        user = self.session.query(User).get(user_data["vk_user_id"])
 
         if user:
-            if "age" in user_data:
-                user.age = int(user_data["age"])
-            if "gender" in user_data:
-                user.gender = int(user_data["gender"])
-            if "city" in user_data:
-                user.city = str(user_data["city"])
+            user.age = int(user_data["age"])
+            user.gender = int(user_data["gender"])
+            user.city = str(user_data["city"])
         else:
             user = User(
-                vk_user_id=int(user_data["id"]),
+                vk_user_id=int(user_data["vk_user_id"]),
                 age=int(user_data["age"]),
                 gender=int(user_data["gender"]),
-                city=str(user_data["city"]),
+                city=str(user_data["city"])
             )
             self.session.add(user)
 
         self.session.commit()
+        return user
 
     def get_user_data(self, user_vk_id: int) -> dict:
         """Вернуть данные пользователя"""
-        user = self.session.query(User).filter(
-            User.vk_user_id == user_vk_id
-        ).first()
-        return {"age": user.age, "city": user.city, "gender": user.gender}
+        user = self.session.query(User).get(user_vk_id)
+        if user:
+            return {
+                "vk_user_id": user.vk_user_id,
+                "age": user.age,
+                "city": user.city,
+                "gender": user.gender
+            }
+        return {}
 
-    def _get_or_save_candidate(
-        self, candidate_data: dict, photos_data: list
-    ):
-        """Получить или сохранить кандидата"""
-        candidate = (
-            self.session.query(Candidate)
-            .filter(Candidate.vk_user_id == candidate_data["id"])
-            .first()
+    def _get_or_create_candidate(self, candidate_vk_id: int, searcher_vk_id: int) -> Optional[Candidate]:
+        """Внутренний метод для получения или создания кандидата"""
+        return self.session.query(Candidate).filter(
+            Candidate.vk_user_id == candidate_vk_id,
+            Candidate.searcher_vk_id == searcher_vk_id
+        ).first()
+
+    def save_candidate_with_photos(
+            self, candidate_data: dict, photos_data: list, searcher_vk_id: int) -> Candidate:
+
+        """Сохранить кандидата с фото"""
+        candidate = self._get_or_create_candidate(
+            candidate_data["id"],
+            searcher_vk_id
         )
 
-        if not candidate:
-            candidate = Candidate(
-                vk_user_id=int(candidate_data["id"]),
-                first_name=str(candidate_data["first_name"]),
-                last_name=str(candidate_data["last_name"]),
-                profile_link=str(candidate_data["profile_link"]),
+        if candidate:
+            return candidate
+
+        candidate = Candidate(
+            vk_user_id=int(candidate_data["id"]),
+            searcher_vk_id=searcher_vk_id,
+            first_name=str(candidate_data["first_name"]),
+            last_name=str(candidate_data["last_name"]),
+            profile_link=str(candidate_data["profile_link"]),
+            view_status=self.STATUS_NOT_VIEWED,
+            favorite_status=self.STATUS_NOT_VIEWED,
+            blacklist_status=self.STATUS_NOT_VIEWED,
+        )
+        self.session.add(candidate)
+        self.session.flush()
+
+        for photo_data in photos_data:
+            photo = Photo(
+                vk_photo_id=photo_data["vk_photo_id"],
+                photo_link=photo_data["photo_link"],
+                candidates_id=candidate.candidate_id,
             )
-            self.session.add(candidate)
-            self.session.flush()
+            self.session.add(photo)
 
-            for photo_data in photos_data:
-                photo = Photo(
-                    vk_photo_id=photo_data["vk_photo_id"],
-                    photo_link=photo_data["photo_link"],
-                    candidate_id=candidate.candidate_id,
-                )
-                self.session.add(photo)
-
-            self.session.commit()
-
+        self.session.commit()
         return candidate
 
-    def add_to_favorites(
-        self, user_vk_id: int, candidate_data: dict, photos_data: list
-    ):
-        """Добавить кандидата в избранное"""
-        user = self.session.query(User).filter(
-            User.vk_user_id == user_vk_id
-        ).first()
+    def _prepare_candidate_data(self, candidate: Candidate) -> Dict[str, Any]:
+        """Подготовка данных кандидата"""
+        photos = self.session.query(Photo).filter(
+            Photo.candidates_id == candidate.candidate_id
+        ).all()
 
-        candidate = self._get_or_save_candidate(candidate_data, photos_data)
+        photos_data = []
+        for photo in photos:
+            photos_data.append({
+                'vk_photo_id': photo.vk_photo_id,
+                'photo_link': photo.photo_link,
+                'owner_id': candidate.vk_user_id
+            })
 
-        if candidate not in user.favorites:
-            user.favorites.append(candidate)
-            self.session.commit()
+        return {
+            'id': candidate.vk_user_id,
+            'vk_user_id': candidate.vk_user_id,
+            'first_name': candidate.first_name,
+            'last_name': candidate.last_name,
+            'profile_link': candidate.profile_link,
+            'photos': photos_data
+        }
 
-    def get_favorites(self, user_vk_id: int) -> list:
-        """Вернуть список избранных кандидатов"""
-        user = (
-            self.session.query(User)
-            .filter(User.vk_user_id == user_vk_id)
-            .options(joinedload(User.favorites).joinedload(Candidate.photos))
-            .first()
-        )
-
-        if not user:
-            return []
-
-        favorites = []
-        for candidate in user.favorites:
-            favorites.append(
-                {
-                    "vk_user_id": candidate.vk_user_id,
-                    "first_name": candidate.first_name,
-                    "last_name": candidate.last_name,
-                    "profile_link": candidate.profile_link,
-                    "photos": [
-                        {
-                            "photo_link": photo.photo_link,
-                            "likes": photo.likes_count,
-                            "vk_photo_id": photo.vk_photo_id,
-                        }
-                        for photo in candidate.photos
-                    ],
-                }
+    def _reset_current_statuses(self, searcher_vk_id: int):
+        """Сбросить статус 'текущий' у всех кандидатов пользователя"""
+        self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == searcher_vk_id,
+            sq.or_(
+                Candidate.view_status == self.STATUS_CURRENT,
+                Candidate.favorite_status == self.STATUS_CURRENT,
+                Candidate.blacklist_status == self.STATUS_CURRENT
             )
+        ).update({
+            "view_status": self.STATUS_VIEWED,
+            "favorite_status": self.STATUS_INACTIVE,
+            "blacklist_status": self.STATUS_INACTIVE
+        })
 
-        return favorites
+    def get_next_candidate(self, searcher_vk_id: int) -> Optional[dict]:
+        """Получить следующего кандидата"""
+        # Сбрасываем статус "текущее" у всех кандидатов пользователя
+        self._reset_current_statuses(searcher_vk_id)
 
-    def remove_from_favorites(self, user_vk_id: int, candidate_vk_id: int):
-        """Убрать кандидата из избранного"""
-        user = self.session.query(User).filter(
-            User.vk_user_id == user_vk_id
+        # Ищем непросмотренного кандидата
+        candidate = self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == searcher_vk_id,
+            Candidate.view_status == self.STATUS_NOT_VIEWED,
+            Candidate.favorite_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE]),
+            Candidate.blacklist_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE])
         ).first()
 
-        candidate = (
-            self.session.query(Candidate)
-            .filter(Candidate.vk_user_id == candidate_vk_id)
-            .first()
-        )
+        if not candidate:
+            return None
 
-        if candidate in user.favorites:
-            user.favorite_candidates.remove(candidate)
-            self.session.commit()
+        # Помечаем как текущий
+        candidate.view_status = self.STATUS_CURRENT
 
-    def add_to_blacklist(self, user_vk_id: int, candidate_vk_id: int):
-        """Добавить кандидата в черный список"""
-        user = self.session.query(User).filter(
-            User.vk_user_id == user_vk_id
-        ).first()
+        if candidate.favorite_status in [self.STATUS_VIEWED, self.STATUS_INACTIVE]:
+            candidate.favorite_status = self.STATUS_CURRENT
 
-        if not user:
+        if candidate.blacklist_status in [self.STATUS_VIEWED, self.STATUS_INACTIVE]:
+            candidate.blacklist_status = self.STATUS_CURRENT
+
+        self.session.commit()
+        return self._prepare_candidate_data(candidate)
+
+    def _update_status(self, searcher_vk_id: int, candidate_vk_id: int,
+                       status_type: str, to_add: bool) -> bool:
+        """Общий метод для обновления статусов (избранное/черный список)"""
+        candidate = self._get_or_create_candidate(candidate_vk_id, searcher_vk_id)
+
+        if not candidate:
             return False
 
-        blocked_candidate = self.session.execute(
-            sq.select(users_to_blacklist).where(
-                (users_to_blacklist.c.user_id == user.user_id)
-                & (users_to_blacklist.c.candidate_vk_id == candidate_vk_id)
-            )
+        if status_type == 'favorite':
+            status_field = 'favorite_status'
+        elif status_type == 'blacklist':
+            status_field = 'blacklist_status'
+        else:
+            raise ValueError(f"Неизвестный тип статуса: {status_type}")
+
+        if to_add:
+            # Добавление в список
+            if candidate.view_status == self.STATUS_CURRENT:
+                setattr(candidate, status_field, self.STATUS_CURRENT)
+            else:
+                setattr(candidate, status_field, self.STATUS_VIEWED)
+            candidate.view_status = self.STATUS_VIEWED
+        else:
+            # Удаление из списка
+            current_status = getattr(candidate, status_field)
+            if current_status == self.STATUS_CURRENT:
+                setattr(candidate, status_field, self.STATUS_INACTIVE)
+            elif current_status == self.STATUS_VIEWED:
+                setattr(candidate, status_field, self.STATUS_NOT_VIEWED)
+
+        self.session.commit()
+        return True
+
+    def add_to_favorites(self, searcher_vk_id: int, candidate_vk_id: int) -> bool:
+        """Добавить кандидата в избранное"""
+        return self._update_status(searcher_vk_id, candidate_vk_id, 'favorite', True)
+
+    def remove_from_favorites(self, searcher_vk_id: int, candidate_vk_id: int) -> bool:
+        """Убрать кандидата из избранного"""
+        return self._update_status(searcher_vk_id, candidate_vk_id, 'favorite', False)
+
+    def add_to_blacklist(self, searcher_vk_id: int, candidate_vk_id: int) -> bool:
+        """Добавить кандидата в черный список"""
+        return self._update_status(searcher_vk_id, candidate_vk_id, 'blacklist', True)
+
+    def remove_from_blacklist(self, searcher_vk_id: int, candidate_vk_id: int) -> bool:
+        """Убрать кандидата из черного списка"""
+        return self._update_status(searcher_vk_id, candidate_vk_id, 'blacklist', False)
+
+    def _get_candidates_by_status(self, searcher_vk_id: int,
+                                  status_field: str,
+                                  status_values: List[int]) -> List[Dict]:
+        """Общий метод для получения кандидатов по статусу"""
+        candidates = self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == searcher_vk_id,
+            getattr(Candidate, status_field).in_(status_values)
+        ).all()
+
+        result = []
+        for candidate in candidates:
+            result.append(self._prepare_candidate_data(candidate))
+
+        return result
+
+    def get_favorites(self, searcher_vk_id: int) -> List[Dict]:
+        """Вернуть список избранных кандидатов"""
+        return self._get_candidates_by_status(
+            searcher_vk_id,
+            'favorite_status',
+            [self.STATUS_VIEWED, self.STATUS_CURRENT, self.STATUS_INACTIVE]
+        )
+
+    def get_blacklist(self, searcher_vk_id: int) -> List[Dict]:
+        """Вернуть список черного списка"""
+        return self._get_candidates_by_status(
+            searcher_vk_id,
+            'blacklist_status',
+            [self.STATUS_VIEWED, self.STATUS_CURRENT, self.STATUS_INACTIVE]
+        )
+
+    def get_unviewed_candidates_count(self, searcher_vk_id: int) -> int:
+        """Получить количество непросмотренных кандидатов"""
+        return self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == searcher_vk_id,
+            Candidate.view_status == self.STATUS_NOT_VIEWED,
+            Candidate.favorite_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE]),
+            Candidate.blacklist_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE])
+        ).count()
+
+    def reset_viewed_candidates(self, searcher_vk_id: int):
+        """Сбросить статус просмотренных кандидатов"""
+        # Все просмотренные делаем непросмотренными
+        self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == searcher_vk_id,
+            Candidate.view_status.in_([self.STATUS_VIEWED, self.STATUS_CURRENT])
+        ).update({"view_status": self.STATUS_NOT_VIEWED})
+
+        self.session.commit()
+
+    def delete_candidates_on_parameter_change(self, user_id: int) -> int:
+        """Удалить кандидатов пользователя (кроме избранных и черного списка) при изменении параметров"""
+        try:
+            candidates_to_delete = self.session.query(Candidate).filter(
+                Candidate.searcher_vk_id == user_id,
+                Candidate.favorite_status == 0,
+                Candidate.blacklist_status == 0
+            ).all()
+
+            deleted_count = 0
+            if candidates_to_delete:
+                for candidate in candidates_to_delete:
+                    # Удаляем фото кандидата
+                    self.session.query(Photo).filter(
+                        Photo.candidates_id == candidate.candidate_id
+                    ).delete()
+                    # Удаляем кандидата
+                    self.session.delete(candidate)
+                    deleted_count += 1
+
+                self.session.commit()
+                return deleted_count
+
+            return 0
+        except Exception as e:
+            print(f"Ошибка при удалении кандидатов: {e}")
+            self.session.rollback()
+            return 0
+
+    def get_candidates_count_to_delete(self, user_id: int) -> int:
+        """Получить количество кандидатов, которые будут удалены при изменении параметров"""
+        return self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.favorite_status == 0,
+            Candidate.blacklist_status == 0
+        ).count()
+
+    def get_current_candidate(self, user_id: int):
+        """Получить текущего кандидата (со статусом просмотра 2)"""
+        candidate = self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.view_status == 2,
+            Candidate.favorite_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE]),
+            Candidate.blacklist_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE])
         ).first()
 
-        if not blocked_candidate:
-            self.session.execute(
-                users_to_blacklist.insert().values(
-                    user_id=user.user_id, candidate_vk_id=candidate_vk_id
-                )
-            )
+        if not candidate:
+            return None
+
+        return self._prepare_candidate_data(candidate)
+
+    def mark_candidate_as_viewed(self, user_id: int, candidate_vk_id: int) -> bool:
+        """Пометить кандидата как просмотренного"""
+        candidate = self._get_or_create_candidate(candidate_vk_id, user_id)
+
+        if not candidate:
+            return False
+
+        candidate.view_status = self.STATUS_VIEWED
+        self.session.commit()
+        return True
+
+    def mark_candidate_as_current(self, user_id: int, candidate_vk_id: int) -> bool:
+        """Пометить кандидата как текущий"""
+        candidate = self._get_or_create_candidate(candidate_vk_id, user_id)
+
+        if not candidate:
+            return False
+
+        candidate.view_status = self.STATUS_CURRENT
+        self.session.commit()
+        return True
+
+    def get_favorites_count(self, user_id: int) -> int:
+        """Получить количество фаворитов"""
+        return self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.favorite_status.in_([self.STATUS_VIEWED, self.STATUS_CURRENT, self.STATUS_INACTIVE])
+        ).count()
+
+    def get_blacklist_count(self, user_id: int) -> int:
+        """Получить количество кандидатов в черном списке"""
+        return self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.blacklist_status.in_([self.STATUS_VIEWED, self.STATUS_CURRENT, self.STATUS_INACTIVE])
+        ).count()
+
+    def delete_candidate_completely(self, user_id: int, candidate_vk_id: int) -> bool:
+        """Полностью удалить кандидата (с фотографиями)"""
+        candidate = self._get_or_create_candidate(candidate_vk_id, user_id)
+
+        if not candidate:
+            return False
+
+        try:
+            # Удаляем фото кандидата
+            self.session.query(Photo).filter(
+                Photo.candidates_id == candidate.candidate_id
+            ).delete()
+
+            # Удаляем кандидата
+            self.session.delete(candidate)
             self.session.commit()
             return True
 
-        return False
-
-    def is_in_blacklist(self, user_vk_id: int, candidate_vk_id: int) -> bool:
-        """Проверить, находится ли кандидат в черном списке"""
-        user = self.session.query(User).filter(
-            User.vk_user_id == user_vk_id
-        ).first()
-
-        if not user:
+        except Exception as e:
+            print(f"Ошибка при удалении кандидата: {e}")
+            self.session.rollback()
             return False
 
-        blocked_candidate = self.session.execute(
-            sq.select(users_to_blacklist.c.user_id).where(
-                (users_to_blacklist.c.user_id == user.user_id)
-                & (users_to_blacklist.c.candidate_vk_id == candidate_vk_id)
-            )
-        ).scalar()
+    def get_candidates_statistics(self, user_id: int) -> dict:
+        """Получить статистику кандидатов"""
+        unviewed_count = self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.view_status == self.STATUS_NOT_VIEWED,
+            Candidate.favorite_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE]),
+            Candidate.blacklist_status.in_([self.STATUS_NOT_VIEWED, self.STATUS_INACTIVE])
+        ).count()
 
-        return blocked_candidate is not None
+        favorites_count = self.get_favorites_count(user_id)
+        blacklist_count = self.get_blacklist_count(user_id)
+
+        return {
+            'unviewed': unviewed_count,
+            'favorites': favorites_count,
+            'blacklist': blacklist_count
+        }
+
+    def delete_viewed_candidates(self, user_id: int) -> int:
+        """Удалить просмотренных кандидатов (кроме избранных и черного списка)"""
+        candidates_to_delete = self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.view_status == self.STATUS_VIEWED,
+            Candidate.favorite_status == self.STATUS_NOT_VIEWED,
+            Candidate.blacklist_status == self.STATUS_NOT_VIEWED
+        ).all()
+
+        deleted_count = 0
+        if candidates_to_delete:
+            for candidate in candidates_to_delete:
+                # Удаляем фото кандидата
+                self.session.query(Photo).filter(
+                    Photo.candidates_id == candidate.candidate_id
+                ).delete()
+                # Удаляем кандидата
+                self.session.delete(candidate)
+                deleted_count += 1
+
+            self.session.commit()
+
+        return deleted_count
+
+    def reset_favorites_view(self, user_id: int):
+        """Сбросить статус просмотра фаворитов"""
+        self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.favorite_status == self.STATUS_INACTIVE
+        ).update({"favorite_status": self.STATUS_VIEWED})
+        self.session.commit()
+
+    def reset_blacklist_view(self, user_id: int):
+        """Сбросить статус просмотра черного списка"""
+        self.session.query(Candidate).filter(
+            Candidate.searcher_vk_id == user_id,
+            Candidate.blacklist_status == self.STATUS_INACTIVE
+        ).update({"blacklist_status": self.STATUS_VIEWED})
+        self.session.commit()
