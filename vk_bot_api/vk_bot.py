@@ -7,9 +7,8 @@ import requests
 import sys
 
 from vk_bot_api.tokens import token_vk, ACCESS_TOKEN_VK
-from vk_bot_api.city_id import get_city_id
-from vk_bot_api.vk_people import search_vk_users
-from vk_bot_api.vk_photos import get_candidate_photos
+from vk_bot_api.requests_api import search_vk_users
+from vk_bot_api.requests_api import get_candidate_photos
 
 # from database.adapter import DatabaseAdapter
 from database.db_models import Candidate, Photo
@@ -142,21 +141,18 @@ def run_bot(adapter):
         gender = user_data.get("gender", 2)
         city = user_data.get("city", "Москва")
 
-        city_id, city_name = get_city_id(city)
-
         user_update = {
             "vk_user_id": user_id,
             "age": age,
             "gender": gender,
             "city": city,
-            "city_id": city_id,
         }
         adapter.save_or_update_user(user_update)
 
         search_gender = gender
 
         candidates = search_vk_users(
-            ACCESS_TOKEN_VK, city_id, age, age, search_gender
+            ACCESS_TOKEN_VK, city, age, age, search_gender
         )
 
         if not candidates:
@@ -850,9 +846,7 @@ def run_bot(adapter):
                         and "city" not in temp_user_data[user_id]
                     ):
                         try:
-                            city_id, city_name = get_city_id(text)
-                            temp_user_data[user_id]["city"] = city_name
-                            temp_user_data[user_id]["city_id"] = city_id
+                            temp_user_data[user_id]["city"] = text
                             write_msg(
                                 user_id,
                                 "Введите пол (1-женский, "
@@ -876,7 +870,6 @@ def run_bot(adapter):
                                 "age": temp_user_data[user_id]["age"],
                                 "gender": int(text),
                                 "city": temp_user_data[user_id]["city"],
-                                "city_id": temp_user_data[user_id]["city_id"],
                             }
 
                             adapter.save_or_update_user(user_data)
@@ -1002,14 +995,12 @@ def run_bot(adapter):
                         and edit_user_data[user_id]["step"] == "edit_city"
                     ):
                         try:
-                            city_id, city_name = get_city_id(text)
                             # Удаляем существующих кандидатов
                             delete_candidates_on_parameter_change(user_id)
 
                             # Обновляем город
                             user_data = adapter.get_user_data(user_id)
-                            user_data["city"] = city_name
-                            user_data["city_id"] = city_id
+                            user_data["city"] = text
                             adapter.save_or_update_user(user_data)
                             del edit_user_data[user_id]
 
@@ -1018,13 +1009,13 @@ def run_bot(adapter):
 
                             write_msg(
                                 user_id,
-                                f"✅ Город обновлен на {city_name}!\n"
+                                f"✅ Город обновлен на {text}!\n"
                                 f"\n"
                                 f"Новые параметры поиска:\n"
                                 f"• Возраст:"
                                 f" {user_data.get('age', 'не указан')} лет\n"
                                 f"• Пол: {gender_text}\n"
-                                f"• Город: {city_name}",
+                                f"• Город: {text}",
                                 get_main_keyboard(),
                             )
                         except (KeyError, ValueError):
