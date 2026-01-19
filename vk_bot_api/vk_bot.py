@@ -150,15 +150,15 @@ def show_blacklist(user_id, blacklist_data=None):
 
 def show_current_settings(user_id):
     message = (
-        f"⚙️ Текущие параметры поиска:\n\n"
-        f"• Возраст: 25 лет\n"
-        f"• Пол: Мужской\n"
-        f"• Город: Москва\n\n"
+        "⚙️ Текущие параметры поиска:\n\n"
+        "• Возраст: 25 лет\n"
+        "• Пол: Мужской\n"
+        "• Город: Москва\n\n"
         "\n\n"
-        f"1. Возраст\n"
-        f"2. Пол\n"
-        f"3. Город\n"
-        f"4. Отмена"
+        "1. Возраст\n"
+        "2. Пол\n"
+        "3. Город\n"
+        "4. Отмена"
     )
     write_msg(user_id, message)
 
@@ -220,7 +220,8 @@ def run_bot():
                         "❤️ У вас 5 фаворитов\n\nВыберите действие:",
                         get_favorites_keyboard(),
                     )
-                    show_favorite(user_id, {"first_name": "Тестовый", "last_name": "Фаворит", "profile_link": "https://vk.com/id2"})
+                    show_favorite(user_id, {"first_name": "Тестовый", "last_name": "Фаворит",
+                                            "profile_link": "https://vk.com/id2"})
 
                 elif text == "🚫 Черный список" or "черный список" in text.lower():
                     write_msg(
@@ -228,7 +229,8 @@ def run_bot():
                         "🚫 В черном списке: 3 \n\nВыберите действие:",
                         get_blacklist_keyboard(),
                     )
-                    show_blacklist(user_id, {"first_name": "Тестовый", "last_name": "Черный список", "profile_link": "https://vk.com/id3"})
+                    show_blacklist(user_id, {"first_name": "Тестовый", "last_name": "Черный список",
+                                             "profile_link": "https://vk.com/id3"})
 
                 elif "настроить" in text.lower() or "⚙️" in text:
                     edit_user_data[user_id] = {"step": "show_settings"}
@@ -241,11 +243,13 @@ def run_bot():
                     else:
                         write_msg(user_id, "Введите возраст 18-100:")
 
-                elif user_id in temp_user_data and "age" in temp_user_data[user_id] and "city" not in temp_user_data[user_id]:
+                elif (user_id in temp_user_data and "age" in temp_user_data[user_id] and
+                      "city" not in temp_user_data[user_id]):
                     temp_user_data[user_id]["city"] = text
                     write_msg(user_id, "Введите пол (1-женский, 2-мужской):")
 
-                elif user_id in temp_user_data and "age" in temp_user_data[user_id] and "city" in temp_user_data[user_id]:
+                elif (user_id in temp_user_data and "age" in temp_user_data[user_id] and
+                      "city" in temp_user_data[user_id]):
                     if text in ["1", "2"]:
                         gender_text = 'Мужской' if text == "2" else 'Женский'
                         write_msg(
@@ -325,14 +329,16 @@ def run_bot():
                     show_candidate(user_id)
 
                 elif "следующий фаворит" in text.lower():
-                    show_favorite(user_id, {"first_name": "Следующий", "last_name": "Фаворит", "profile_link": "https://vk.com/id4"})
+                    show_favorite(user_id, {"first_name": "Следующий", "last_name": "Фаворит",
+                                            "profile_link": "https://vk.com/id4"})
 
                 elif "удалить фаворита" in text.lower():
                     write_msg(user_id, "🗑️ Фаворит удален!", get_favorites_keyboard())
                     show_favorite(user_id)
 
                 elif "следующий в чс" in text.lower():
-                    show_blacklist(user_id, {"first_name": "Следующий", "last_name": "Черный список", "profile_link": "https://vk.com/id5"})
+                    show_blacklist(user_id, {"first_name": "Следующий", "last_name": "Черный список",
+                                             "profile_link": "https://vk.com/id5"})
 
                 elif "удалить из чс" in text.lower():
                     write_msg(user_id, "🗑️ Удалено из черного списка!", get_blacklist_keyboard())
@@ -356,14 +362,14 @@ def run_bot():
 
                 elif "информация" in text.lower():
                     message = (
-                        f"📋 Статистика:\n"
-                        f"• Непросмотренных кандидатов: 10\n"
-                        f"• В избранном: 5\n"
-                        f"• В черном списке: 3\n\n"
-                        f"📊 Параметры поиска:\n"
-                        f"• Возраст: 25 лет\n"
-                        f"• Пол: Мужской\n"
-                        f"• Город: Москва"
+                        "📋 Статистика:\n"
+                        "• Непросмотренных кандидатов: 10\n"
+                        "• В избранном: 5\n"
+                        "• В черном списке: 3\n\n"
+                        "📊 Параметры поиска:\n"
+                        "• Возраст: 25 лет\n"
+                        "• Пол: Мужской\n"
+                        "• Город: Москва"
                     )
                     write_msg(user_id, message, get_profiles_keyboard())
 
