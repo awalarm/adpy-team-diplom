@@ -16,7 +16,7 @@
 4. Запустите файл *db_models.py*, который автоматически создаст сущностей
 
 ## Схема БД
-<img width="1760" height="726" alt="БД_VK_updated" src="https://github.com/user-attachments/assets/4e11a5c3-3ce2-4ce7-8ec8-3bfe894ece8d" />
+<img width="1727" height="711" alt="БД_VK_updated" src="https://github.com/user-attachments/assets/611bfa05-325b-4393-80ec-6dedac081314" />
 
 ## Как запустить бот
 1. выавыавыа
