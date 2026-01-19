@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2 import sql, OperationalError
+from psycopg2 import sql
 
 
 def create_database(db_name, user, password, host="localhost", port=5432):
@@ -19,13 +19,13 @@ def create_database(db_name, user, password, host="localhost", port=5432):
             sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
         )
 
-        print(f"База данных '{db_name}' успешно создана.")
-
         cursor.close()
         conn.close()
-    except OperationalError as e:
-        print(f"Ошибка подключения: {e}")
+        print(f"База данных '{db_name}' успешно создана.")
+        return True
     except psycopg2.errors.DuplicateDatabase:
-        print(f"База данных '{db_name}'уже существует")
-    except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"База данных '{db_name}' уже существует.")
+        return True
+    except Exception as create_error:
+        print(f"Ошибка создания БД: {create_error}")
+        return False

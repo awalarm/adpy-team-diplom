@@ -1,0 +1,11 @@
+pip~=23.2.1
+wheel~=0.41.2
+cryptography~=46.0.3
+pillow~=10.4.0
+uuid~=1.30
+setuptools~=68.2.0
+SQLAlchemy~=2.0.45
+vk_api~=11.10.0
+requests~=2.32.5
+psycopg2-binary~=2.9.9
+flake8>=6.0.0
