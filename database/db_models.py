@@ -7,26 +7,21 @@ Base = declarative_base()
 class Candidate(Base):
     __tablename__ = "candidates"
 
-    candidate_id = sq.Column(sq.Integer, primary_key=True)
-    vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
+    id = sq.Column(sq.Integer, primary_key=True)
+    vk_candidate_id = sq.Column(sq.Integer, unique=True, nullable=False)
     first_name = sq.Column(sq.String, nullable=False)
     last_name = sq.Column(sq.String, nullable=False)
     profile_link = sq.Column(sq.String, nullable=False)
 
     favorites = relationship(
-        "User", secondary="users_to_favorites", backref="favorite_candidates"
-    )
-    blacklist = relationship(
-        "User",
-        secondary="users_to_blacklist",
-        backref="blacklisted_candidates",
+        "User", secondary="candidate_to_user", backref="favorite_candidates"
     )
 
 
 class User(Base):
     __tablename__ = "users"
 
-    user_id = sq.Column(sq.Integer, primary_key=True)
+    id = sq.Column(sq.Integer, primary_key=True)
     vk_user_id = sq.Column(sq.Integer, unique=True, nullable=False)
     age = sq.Column(sq.Integer, nullable=False)
     gender = sq.Column(sq.Integer, nullable=False)
@@ -36,35 +31,30 @@ class User(Base):
 class Photo(Base):
     __tablename__ = "photos"
 
-    photo_id = sq.Column(sq.Integer, primary_key=True)
+    id = sq.Column(sq.Integer, primary_key=True)
     vk_photo_id = sq.Column(sq.Integer, unique=True, nullable=False)
-    candidates_id = sq.Column(
-        sq.Integer, sq.ForeignKey("candidates.candidate_id"), nullable=False
+    candidate_id = sq.Column(
+        sq.Integer, sq.ForeignKey("candidates.id"), nullable=False
     )
     photo_link = sq.Column(sq.String, nullable=False)
 
     candidates = relationship("Candidate", backref="photos")
 
 
-class Blacklist(Base):
-    __tablename__ = "blacklist"
-
-    blacklist_id = sq.Column(sq.Integer, primary_key=True)
-    vk_candidate_id = sq.Column(sq.Integer, unique=True, nullable=False)
-    user_id = sq.Column(
-        sq.Integer, sq.ForeignKey("users.user_id"), nullable=False
-    )
-
-    user = relationship("User", backref="blacklist")
-
-
-users_to_favorites = sq.Table(
-    "users_to_favorites",
+candidate_to_user = sq.Table(
+    "candidate_to_user",
     Base.metadata,
     sq.Column(
-        "candidate_id", sq.Integer, sq.ForeignKey("candidates.candidate_id")
+        "candidate_id",
+        sq.Integer,
+        sq.ForeignKey("candidates.id"),
     ),
-    sq.Column("user_id", sq.Integer, sq.ForeignKey("users.user_id")),
+    sq.Column(
+        "searcher_vk_id", sq.Integer, sq.ForeignKey("users.id")
+    ),
+    sq.Column("view_status", sq.Integer, default=0, nullable=False),
+    sq.Column("favorite_status", sq.Boolean, default=False, nullable=False),
+    sq.Column("blacklist_status", sq.Boolean, default=False, nullable=False),
 )
 
 
