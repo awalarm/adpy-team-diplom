@@ -277,7 +277,6 @@ def run_bot():
                         write_msg(user_id, "Введите новый город:")
                     elif text == "4" or "отмена" in text.lower():
                         del edit_user_data[user_id]
-                        # ЗАМЕНА: вместо "Изменения отменены." выводим welcome_message
                         write_msg(user_id, welcome_message, get_main_keyboard())
                     else:
                         write_msg(user_id, "Выберите параметр для изменения (1-4):")
@@ -349,7 +348,6 @@ def run_bot():
                         del temp_user_data[user_id]
                     if user_id in edit_user_data:
                         del edit_user_data[user_id]
-                    # ЗАМЕНА: вместо "Главное меню" выводим welcome_message
                     write_msg(user_id, welcome_message, get_main_keyboard())
 
                 elif text.lower() == "назад":
@@ -357,7 +355,6 @@ def run_bot():
                         del temp_user_data[user_id]
                     if user_id in edit_user_data:
                         del edit_user_data[user_id]
-                    # ЗАМЕНА: выводим welcome_message
                     write_msg(user_id, welcome_message, get_main_keyboard())
 
                 elif "информация" in text.lower():
@@ -377,7 +374,6 @@ def run_bot():
                     if user_id in temp_user_data or user_id in edit_user_data:
                         write_msg(user_id, "Завершите регистрацию/редактирование или введите 'отмена'")
                     else:
-                        # ЗАМЕНА: вместо "Не понял. Нажмите 'Начать поиск'" выводим welcome_message
                         write_msg(user_id, welcome_message, get_main_keyboard())
 
         time.sleep(0.1)
