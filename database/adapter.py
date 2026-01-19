@@ -205,8 +205,8 @@ class DatabaseAdapter:
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
                     candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED,
-                    candidate_to_user.c.favorite_status == False,
-                    candidate_to_user.c.blacklist_status == False
+                    candidate_to_user.c.favorite_status.in_(False),
+                    candidate_to_user.c.blacklist_status.in_(False)
                 )
             )
         )
@@ -349,8 +349,8 @@ class DatabaseAdapter:
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
                     candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED,
-                    candidate_to_user.c.favorite_status == False,
-                    candidate_to_user.c.blacklist_status == False
+                    candidate_to_user.c.favorite_status.in_(False),
+                    candidate_to_user.c.blacklist_status.in_(False)
                 )
             )
         )
@@ -387,8 +387,8 @@ class DatabaseAdapter:
                 sq.select(candidate_to_user).where(
                     sq.and_(
                         candidate_to_user.c.searcher_vk_id == user.id,
-                        candidate_to_user.c.favorite_status == False,
-                        candidate_to_user.c.blacklist_status == False
+                        candidate_to_user.c.favorite_status.in_(False),
+                        candidate_to_user.c.blacklist_status.in_(False)
                     )
                 )
             ).fetchall()
@@ -446,8 +446,8 @@ class DatabaseAdapter:
             .where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status == False,
-                    candidate_to_user.c.blacklist_status == False
+                    candidate_to_user.c.favorite_status.in_(False),
+                    candidate_to_user.c.blacklist_status.in_(False)
                 )
             )
         )
@@ -537,7 +537,7 @@ class DatabaseAdapter:
             .where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status == True
+                    candidate_to_user.c.favorite_status.in_(True)
                 )
             )
         )
@@ -556,7 +556,7 @@ class DatabaseAdapter:
             .where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.blacklist_status == True
+                    candidate_to_user.c.blacklist_status.in_(True)
                 )
             )
         )
@@ -631,8 +631,8 @@ class DatabaseAdapter:
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
                     candidate_to_user.c.view_status == self.STATUS_VIEWED,
-                    candidate_to_user.c.favorite_status == False,
-                    candidate_to_user.c.blacklist_status == False
+                    candidate_to_user.c.favorite_status.in_(False),
+                    candidate_to_user.c.blacklist_status.in_(False)
                 )
             )
         ).fetchall()
@@ -684,7 +684,7 @@ class DatabaseAdapter:
             candidate_to_user.update().where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status == True
+                    candidate_to_user.c.favorite_status.in_(True)
                 )
             ).values(view_status=self.STATUS_VIEWED)
         )
@@ -700,7 +700,7 @@ class DatabaseAdapter:
             candidate_to_user.update().where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.blacklist_status == True
+                    candidate_to_user.c.blacklist_status.in_(True)
                 )
             ).values(view_status=self.STATUS_VIEWED)
         )
