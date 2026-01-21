@@ -10,7 +10,7 @@
 ````adpy-team-diplom/
 ├── main.py                 # Главный запускающий файл
 ├── config.py              # Конфигурационные параметры
-├── requirements.py        # Необходимые пакеты и библиотеки
+├── requirements.py        # Настройка зависимостей
 ├── vk_bot_api/
 │   ├── vk_bot.py         # Основная логика бота и клавиатуры для VK
 │   ├── requests_api.py   # Работа с VK API
@@ -90,7 +90,7 @@ sql
 ```bash```  
 ```pip install vk-api sqlalchemy psycopg2-binary requests```  
 ### Настройка конфигурации  
-Создайте файл ```.env``` или настройте ```config.py```:  
+Настройте ```config.py```:  
 ```python```  
 # Параметры базы данных
 ```DB_USER = 'postgres'  
@@ -240,11 +240,7 @@ WantedBy=multi-user.target
 2.	Создание feature-ветки
 3.	Внесение изменений
 4.	Создание pull request
-# Тестирование
-```bash```
-##  Запуск тестов
-``` pytest tests/ ``` 
-
+   
 # Проверка стиля кода
 ```flake8 vk_bot_api/ ``` 
 ```black vk_bot_api/ --check ```
