@@ -32,7 +32,7 @@ class Photo(Base):
     __tablename__ = "photos"
 
     id = sq.Column(sq.Integer, primary_key=True)
-    vk_photo_id = sq.Column(sq.Integer, unique=True, nullable=False)
+    vk_photo_id = sq.Column(sq.Integer, nullable=False)
     candidate_id = sq.Column(
         sq.Integer, sq.ForeignKey("candidates.id"), nullable=False
     )
