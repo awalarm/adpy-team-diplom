@@ -341,8 +341,8 @@ def run_bot(adapter):
                             write_msg(user_id, UNABLE_LOAD_BLACKLIST, get_main_keyboard())
 
                     # НАСТРОЙКА ПАРАМЕТРОВ ПОИСКА - исправленная проверка
-                    elif (text == '⚙️ Настроить параметры поиска' or text == '️⚙️ Настроить параметры поиска' or
-                          text.lower() == 'настроить параметры поиска'):
+                    elif (text == '⚙️ Настроить параметры поиска' or text == '️⚙️ Настроить параметры поиска'
+                          or text.lower() == 'настроить параметры поиска'):
                         existing_user = adapter.get_user_data(user_id)
                         if not existing_user:
                             write_msg(user_id, SETTINGS_NO_REG, get_start_keyboard())
@@ -442,8 +442,8 @@ def run_bot(adapter):
                                 write_msg(user_id, ALL_BLACKLIST_DELETED_EMPTY, get_main_keyboard())
 
                     # Редактирование параметров - когда пользователь уже в режиме редактирования
-                    elif (user_id in edit_user_data and
-                          edit_user_data[user_id]['step'] == 'show_settings'):
+                    elif (user_id in edit_user_data
+                          and edit_user_data[user_id]['step'] == 'show_settings'):
                         if text.lower() == '1' or 'возраст' in text.lower():
                             edit_user_data[user_id] = {'step': 'edit_age'}
                             write_msg(user_id, SETTINGS_ENTER_NEW_AGE)
@@ -460,8 +460,8 @@ def run_bot(adapter):
                             write_msg(user_id, SETTINGS_CHOOSE_PARAM)
 
                     # Редактирование возраста
-                    elif (user_id in edit_user_data and
-                          edit_user_data[user_id]['step'] == 'edit_age'):
+                    elif (user_id in edit_user_data
+                          and edit_user_data[user_id]['step'] == 'edit_age'):
                         if text.lower().isdigit() and 14 <= int(text.lower()) <= 100:
                             deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
                             user_data = adapter.get_user_data(user_id)
@@ -475,8 +475,7 @@ def run_bot(adapter):
                             write_msg(user_id, REG_INVALID_AGE)
 
                     # Редактирование пола
-                    elif (user_id in edit_user_data and
-                          edit_user_data[user_id]['step'] == 'edit_gender'):
+                    elif (user_id in edit_user_data and edit_user_data[user_id]['step'] == 'edit_gender'):
                         if text.lower() in ['1', '2']:
                             deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
                             user_data = adapter.get_user_data(user_id)
@@ -491,8 +490,7 @@ def run_bot(adapter):
                             write_msg(user_id, REG_INVALID_GENDER)
 
                     # Редактирование города
-                    elif (user_id in edit_user_data and
-                          edit_user_data[user_id]['step'] == 'edit_city'):
+                    elif (user_id in edit_user_data and edit_user_data[user_id]['step'] == 'edit_city'):
                         if len(text) >= 2:
                             deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
                             user_data = adapter.get_user_data(user_id)
