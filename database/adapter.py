@@ -594,8 +594,6 @@ class DatabaseAdapter:
             self.session.rollback()
             return 0
 
-
-
     def get_next_favorite(self, searcher_vk_id: int) -> Optional[dict]:
         """Получить следующего непросмотренного фаворита через статусы"""
         user = self._get_user_by_vk_id(searcher_vk_id)
@@ -715,8 +713,6 @@ class DatabaseAdapter:
             ).values(view_status=self.STATUS_NOT_VIEWED)
         )
         self.session.commit()
-
-
 
     def get_next_blacklist(self, searcher_vk_id: int) -> Optional[dict]:
         """Получить следующего непросмотренного в черном списке через статусы"""

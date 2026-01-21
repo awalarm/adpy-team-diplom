@@ -18,6 +18,3 @@ ACCESS_TOKEN_VK = ('vk1.a.0LXAnkhAlhqXXtmZEDfrbjh50F6mn6MIxgvayhlDJvCQyMjeSJAF'
                    'N_NshhwFRT5hns3QtJeQ8Xx0dhRzXBJaRg5iHCbu1Whnxus702tUCIZOW'
                    'tydCcLgfD6fz-JKiC7EgGdn97JnCLewJMVKTqWbzEMpumj130GGYF9WR'
                    'qZCX85BYYG8_YBnvCi6coRnhDcB')
-
-
-

@@ -341,7 +341,8 @@ def run_bot(adapter):
                             write_msg(user_id, UNABLE_LOAD_BLACKLIST, get_main_keyboard())
 
                     # НАСТРОЙКА ПАРАМЕТРОВ ПОИСКА - исправленная проверка
-                    elif text == '⚙️ Настроить параметры поиска' or text == '️⚙️ Настроить параметры поиска' or text.lower() == 'настроить параметры поиска':
+                    elif (text == '⚙️ Настроить параметры поиска' or text == '️⚙️ Настроить параметры поиска' or
+                          text.lower() == 'настроить параметры поиска'):
                         existing_user = adapter.get_user_data(user_id)
                         if not existing_user:
                             write_msg(user_id, SETTINGS_NO_REG, get_start_keyboard())
