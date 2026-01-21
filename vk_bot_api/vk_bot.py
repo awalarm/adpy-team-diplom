@@ -1,377 +1,567 @@
-from random import randrange
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
-from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import time
+import sys
 
-from config import token_vk
-
-
-def get_start_keyboard():
-    """Стартовая клавиатура"""
-    keyboard = VkKeyboard(one_time=True)
-    keyboard.add_button("Начать поиск", color=VkKeyboardColor.PRIMARY)
-    return keyboard.get_keyboard()
-
-
-def get_main_keyboard():
-    """Клавиатура Главное меню"""
-    keyboard = VkKeyboard(one_time=False)
-    keyboard.add_button("👀 Смотреть анкеты", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_line()
-    keyboard.add_button("❤️ Мои фавориты", color=VkKeyboardColor.POSITIVE)
-    keyboard.add_button("🚫 Черный список", color=VkKeyboardColor.NEGATIVE)
-    keyboard.add_line()
-    keyboard.add_button("️⚙️ Настроить параметры поиска", color=VkKeyboardColor.SECONDARY)
-    return keyboard.get_keyboard()
-
-
-def get_profiles_keyboard():
-    """Клавиатура работа с кандидатами (найденные пользователи вк)"""
-    keyboard = VkKeyboard(one_time=False)
-    keyboard.add_button("❤️ Нравится", color=VkKeyboardColor.POSITIVE)
-    keyboard.add_button("🚫 В черный список", color=VkKeyboardColor.NEGATIVE)
-    keyboard.add_button("➡️ Следующий", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_line()
-    keyboard.add_button("📋 Информация о поиске", color=VkKeyboardColor.SECONDARY)
-    keyboard.add_button("Назад", color=VkKeyboardColor.NEGATIVE)
-    return keyboard.get_keyboard()
+from config import token_vk, ACCESS_TOKEN_VK
+from vk_bot_api.keyboard import (
+    get_start_keyboard, get_main_keyboard, get_profiles_keyboard,
+    get_favorites_keyboard, get_blacklist_keyboard
+)
+from vk_bot_api.requests_api import search_vk_users, get_candidate_photos
+from vk_bot_api.message import (
+    write_msg, WELCOME_MESSAGE, START_MESSAGE, REG_ENTER_AGE,
+    REG_INVALID_AGE, REG_ENTER_CITY, REG_INVALID_CITY, REG_ENTER_GENDER,
+    REG_INVALID_GENDER, REG_COMPLETE, REG_ALREADY_REGISTERED, NEED_SETTINGS,
+    NO_CANDIDATES_FOUND, CANDIDATES_SAVED, NO_CANDIDATES_SAVED, SEARCHING_VK,
+    API_SEARCH_ERROR, CANDIDATE_INFO, NO_PHOTO_WARNING, NO_CANDIDATE_DATA,
+    UNABLE_TO_SHOW, ADDED_TO_FAVORITES, ADDED_TO_BLACKLIST, SELECT_CANDIDATE_FIRST,
+    FAVORITES_EMPTY, FAVORITES_ALL_VIEWED, FAVORITE_INFO, UNABLE_LOAD_FAVORITES,
+    NO_FAVORITES, SELECT_FAVORITE_TO_DELETE, REMOVED_FROM_FAVORITES,
+    RESTARTING_FAVORITES, ALL_FAVORITES_DELETED, ALL_FAVORITES_DELETED_EMPTY,
+    BLACKLIST_EMPTY, BLACKLIST_EMPTY_FULL, BLACKLIST_INFO, UNABLE_LOAD_BLACKLIST,
+    BLACKLIST_ALL_VIEWED, SELECT_BLACKLIST_TO_DELETE, REMOVED_FROM_BLACKLIST,
+    RESTARTING_BLACKLIST, ALL_BLACKLIST_DELETED, ALL_BLACKLIST_DELETED_EMPTY,
+    SETTINGS_NO_REG, SETTINGS_CURRENT, SETTINGS_AGE_UPDATED, SETTINGS_GENDER_UPDATED,
+    SETTINGS_CITY_UPDATED, SETTINGS_CANCELLED, SETTINGS_CHOOSE_PARAM,
+    SETTINGS_ENTER_NEW_AGE, SETTINGS_ENTER_NEW_GENDER, SETTINGS_ENTER_NEW_CITY,
+    STATISTICS_INFO, STATISTICS_NO_REG, MAIN_MENU, BACK_TO_MAIN, COMPLETE_REG_OR_CANCEL,
+    CHOOSE_ACTION, UNKNOWN_COMMAND, GENDER_FEMALE, GENDER_MALE,
+    AGE_NOT_SPECIFIED, CITY_NOT_SPECIFIED
+)
 
 
-def get_favorites_keyboard():
-    """Клавиатура фаворитов"""
-    keyboard = VkKeyboard(one_time=False)
-    keyboard.add_button("➡️ Следующий фаворит", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_button("🗑️ Удалить фаворита", color=VkKeyboardColor.NEGATIVE)
-    keyboard.add_line()
-    keyboard.add_button("📋 Главное меню", color=VkKeyboardColor.SECONDARY)
-    return keyboard.get_keyboard()
-
-
-def get_blacklist_keyboard():
-    """Клавиатура черного списка"""
-    keyboard = VkKeyboard(one_time=False)
-    keyboard.add_button("➡️ Следующий в ЧС", color=VkKeyboardColor.PRIMARY)
-    keyboard.add_button("🗑️ Удалить из ЧС", color=VkKeyboardColor.NEGATIVE)
-    keyboard.add_line()
-    keyboard.add_button("📋 Главное меню", color=VkKeyboardColor.SECONDARY)
-    return keyboard.get_keyboard()
-
-
-def write_msg(user_id, message, keyboard=None, attachment=None):
-    """метод отправляет сообщение пользователю ВКонтакте через VK API"""
-    local_vk_session = vk_api.VkApi(token=token_vk)
-    local_vk = local_vk_session.get_api()
-
-    params = {
-        "user_id": user_id,
-        "message": message,
-        "random_id": randrange(10 ** 7),
-    }
-    if keyboard:
-        params["keyboard"] = keyboard
-    if attachment:
-        params["attachment"] = attachment
-
-    local_vk.messages.send(**params)
-
-
-def show_candidate(user_id, candidate_data=None):
-    """поиск кандидатов"""
-    if not candidate_data:
-        write_msg(
-            user_id,
-            "🔄 Ищу новых кандидатов... Ожидайте🔄",
-            get_profiles_keyboard(),
-        )
-        write_msg(
-            user_id,
-            "👤 Кандидат (тестовый)\n\n"
-            "📋 Информация:\n"
-            "• Имя: Тестовый Кандидат\n"
-            "• Ссылка: https://vk.com/id1\n\n"
-            "💡 Выберите действие:",
-            get_profiles_keyboard(),
-        )
-    else:
-        write_msg(
-            user_id,
-            f"👤 Кандидат\n\n"
-            f"📋 Информация:\n"
-            f"• Имя: {candidate_data['first_name']} "
-            f"{candidate_data['last_name']}\n"
-            f"• Ссылка: {candidate_data['profile_link']}\n\n"
-            f"💡 Выберите действие:",
-            get_profiles_keyboard(),
-        )
-
-
-def show_favorite(user_id, favorite_data=None):
-    """работа с Фаворитами"""
-    if not favorite_data:
-        write_msg(
-            user_id,
-            "🎉 Вы просмотрели всех фаворитов!\nНачните заново.",
-            get_main_keyboard(),
-        )
-    else:
-        write_msg(
-            user_id,
-            f"❤️ Фаворит\n\n"
-            f"📋 Информация:\n"
-            f"• Имя: {favorite_data['first_name']} "
-            f"{favorite_data['last_name']}\n"
-            f"• Ссылка: {favorite_data['profile_link']}\n\n"
-            f"💡 Выберите действие:",
-            get_favorites_keyboard(),
-        )
-
-
-def show_blacklist(user_id, blacklist_data=None):
-    """работа с черным списком"""
-    if not blacklist_data:
-        write_msg(
-            user_id,
-            "🎉 Вы просмотрели всех в черном списке!\nНачните заново.",
-            get_main_keyboard(),
-        )
-    else:
-        write_msg(
-            user_id,
-            f"🚫 Черный список\n\n"
-            f"📋 Информация:\n"
-            f"• Имя: {blacklist_data['first_name']} "
-            f"{blacklist_data['last_name']}\n"
-            f"• Ссылка: {blacklist_data['profile_link']}\n\n"
-            f"💡 Выберите действие:",
-            get_blacklist_keyboard(),
-        )
-
-
-def show_current_settings(user_id):
-    message = (
-        "⚙️ Текущие параметры поиска:\n\n"
-        "• Возраст: 25 лет\n"
-        "• Пол: Мужской\n"
-        "• Город: Москва\n\n"
-        "\n\n"
-        "1. Возраст\n"
-        "2. Пол\n"
-        "3. Город\n"
-        "4. Отмена"
-    )
-    write_msg(user_id, message)
-
-
-def run_bot():
-    print("Бот запущен и ожидает сообщений...")
-
-    welcome_message = (
-        "👋 Я — бот для знакомств «Conspicere» - Взаимный взгляд.\n"
-        "📋 Что я умею:\n"
-        "• Искать людей по возрасту, городу и полу\n"
-        "• Показывать фото профиля\n"
-        "• Сохранять понравившихся в избранное\n"
-        "• Вести черный список\n\n"
-        "Нажмите '👀 Смотреть анкеты'"
-    )
+def run_bot(adapter):
+    print("Бот запущен")
 
     temp_user_data = {}
     edit_user_data = {}
 
-    while True:
-        vk_session = vk_api.VkApi(token=token_vk)
-        longpoll = VkLongPoll(vk_session, wait=25)
-        events = longpoll.check()
+    def search_and_save_candidates_from_api(user_id):
+        """Найти кандидатов через VK API и сохранить в БД"""
+        user_data = adapter.get_user_data(user_id)
+        if not user_data:
+            return 0, NEED_SETTINGS
 
-        for event in events:
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                user_id = event.user_id
-                text = event.text
+        age = user_data.get('age')
+        gender = user_data.get('gender')
+        city = user_data.get('city')
 
-                print(f"Получено сообщение от {user_id}: '{text}'")
+        print(f"Поиск кандидатов через API: город={city}, возраст={age}, пол={gender}")
 
-                if text.lower() in ["привет", "старт", "начать", "start", "👋"]:
-                    write_msg(user_id, welcome_message, get_main_keyboard())
+        try:
+            candidates = search_vk_users(
+                ACCESS_TOKEN_VK,
+                city,
+                age,
+                age,
+                gender,
+                offset=0
+            )
 
-                elif text == "Начать поиск" or text.lower() == "поиск":
-                    write_msg(
-                        user_id,
-                        "✅ Настройки поиска!\nВведите возраст кандидата (например: 25):",
-                    )
-                    temp_user_data[user_id] = {}
+            print(f"Найдено кандидатов через API: {len(candidates)}")
 
-                elif text == "👀 Смотреть анкеты" or "смотреть анкеты" in text.lower():
-                    show_candidate(user_id)
+            if not candidates:
+                return 0, NO_CANDIDATES_FOUND
 
-                elif text == "❤️ Нравится" or "нравится" in text.lower():
-                    write_msg(user_id, "✅ Добавлено в избранное!", get_profiles_keyboard())
-                    show_candidate(user_id)
-
-                elif text == "🚫 В черный список" or "в черный список" in text.lower():
-                    write_msg(user_id, "✅ Добавлено в черный список!", get_profiles_keyboard())
-                    show_candidate(user_id)
-
-                elif text == "❤️ Мои фавориты" or "мои фавориты" in text.lower():
-                    write_msg(
-                        user_id,
-                        "❤️ У вас 5 фаворитов\n\nВыберите действие:",
-                        get_favorites_keyboard(),
-                    )
-                    show_favorite(user_id, {"first_name": "Тестовый", "last_name": "Фаворит",
-                                            "profile_link": "https://vk.com/id2"})
-
-                elif text == "🚫 Черный список" or "черный список" in text.lower():
-                    write_msg(
-                        user_id,
-                        "🚫 В черном списке: 3 \n\nВыберите действие:",
-                        get_blacklist_keyboard(),
-                    )
-                    show_blacklist(user_id, {"first_name": "Тестовый", "last_name": "Черный список",
-                                             "profile_link": "https://vk.com/id3"})
-
-                elif "настроить" in text.lower() or "⚙️" in text:
-                    edit_user_data[user_id] = {"step": "show_settings"}
-                    show_current_settings(user_id)
-
-                elif user_id in temp_user_data and "age" not in temp_user_data[user_id]:
-                    if text.isdigit() and 18 <= int(text) <= 100:
-                        temp_user_data[user_id]["age"] = int(text)
-                        write_msg(user_id, "Введите город:")
-                    else:
-                        write_msg(user_id, "Введите возраст 18-100:")
-
-                elif (user_id in temp_user_data and "age" in temp_user_data[user_id] and
-                      "city" not in temp_user_data[user_id]):
-                    temp_user_data[user_id]["city"] = text
-                    write_msg(user_id, "Введите пол (1-женский, 2-мужской):")
-
-                elif (user_id in temp_user_data and "age" in temp_user_data[user_id] and
-                      "city" in temp_user_data[user_id]):
-                    if text in ["1", "2"]:
-                        gender_text = 'Мужской' if text == "2" else 'Женский'
-                        write_msg(
-                            user_id,
-                            f"✅ Параметры поиска введены!\n"
-                            f"Возраст: {temp_user_data[user_id]['age']} лет\n"
-                            f"Город: {temp_user_data[user_id]['city']}\n"
-                            f"Пол: {gender_text}\n\n"
-                            f"Нажмите '👀 Смотреть анкеты'",
-                            get_main_keyboard(),
+            saved_count = 0
+            for candidate in candidates:
+                try:
+                    photos = get_candidate_photos(ACCESS_TOKEN_VK, candidate['id'])
+                    if photos:
+                        adapter.save_candidate_with_photos(
+                            candidate_data=candidate,
+                            photos_data=photos,
+                            searcher_vk_id=user_id
                         )
-                        del temp_user_data[user_id]
-                    else:
-                        write_msg(user_id, "Введите 1 или 2:")
+                        saved_count += 1
+                        print(f"Сохранен кандидат: {candidate['first_name']} {candidate['last_name']}")
 
-                elif user_id in edit_user_data and edit_user_data[user_id]["step"] == "show_settings":
-                    if text == "1" or "возраст" in text.lower():
-                        edit_user_data[user_id] = {"step": "edit_age"}
-                        write_msg(user_id, "Введите новый возраст кандидата (например: 25):")
-                    elif text == "2" or "пол" in text.lower():
-                        edit_user_data[user_id] = {"step": "edit_gender"}
-                        write_msg(user_id, "Введите новый пол (1-женский, 2-мужской):")
-                    elif text == "3" or "город" in text.lower():
-                        edit_user_data[user_id] = {"step": "edit_city"}
-                        write_msg(user_id, "Введите новый город:")
-                    elif text == "4" or "отмена" in text.lower():
-                        del edit_user_data[user_id]
-                        write_msg(user_id, welcome_message, get_main_keyboard())
-                    else:
-                        write_msg(user_id, "Выберите параметр для изменения (1-4):")
+                except Exception as e:
+                    print(f"Ошибка сохранения кандидата {candidate['id']}: {e}")
+                    continue
 
-                elif user_id in edit_user_data and edit_user_data[user_id]["step"] == "edit_age":
-                    if text.isdigit() and 18 <= int(text) <= 100:
-                        write_msg(
-                            user_id,
-                            f"✅ Возраст обновлен на {text} лет!\n\n"
-                            f"Новые параметры поиска:\n"
-                            f"• Возраст: {text} лет\n"
-                            f"• Пол: Мужской\n"
-                            f"• Город: Москва",
-                            get_main_keyboard(),
-                        )
-                        del edit_user_data[user_id]
-                    else:
-                        write_msg(user_id, "Введите возраст 18-100:")
+            if saved_count == 0:
+                return 0, NO_CANDIDATES_SAVED
 
-                elif user_id in edit_user_data and edit_user_data[user_id]["step"] == "edit_gender":
-                    if text in ["1", "2"]:
-                        gender_text = 'женский' if text == '1' else 'мужской'
-                        write_msg(
-                            user_id,
-                            f"✅ Пол обновлен на {gender_text}!\n\n"
-                            f"Новые параметры поиска:\n"
-                            f"• Возраст: 25 лет\n"
-                            f"• Пол: {'Женский' if text == '1' else 'Мужской'}\n"
-                            f"• Город: Москва",
-                            get_main_keyboard(),
-                        )
-                        del edit_user_data[user_id]
-                    else:
-                        write_msg(user_id, "Введите 1 или 2:")
+            return saved_count, CANDIDATES_SAVED.format(saved_count)
 
-                elif user_id in edit_user_data and edit_user_data[user_id]["step"] == "edit_city":
-                    write_msg(
-                        user_id,
-                        f"✅ Город обновлен на {text}!\n\n"
-                        f"Новые параметры поиска:\n"
-                        f"• Возраст: 25 лет\n"
-                        f"• Пол: Мужской\n"
-                        f"• Город: {text}",
-                        get_main_keyboard(),
-                    )
-                    del edit_user_data[user_id]
+        except Exception as e:
+            print(f"Ошибка при поиске через API: {e}")
+            return 0, API_SEARCH_ERROR.format(str(e))
 
-                elif "следующий" in text.lower() and text != "➡️ Следующий фаворит" and text != "➡️ Следующий в ЧС":
-                    show_candidate(user_id)
+    def show_candidate_from_db_or_api(user_id):
+        """Показать кандидата из БД или найти новых через API"""
+        candidate = adapter.get_next_candidate(user_id)
 
-                elif "следующий фаворит" in text.lower():
-                    show_favorite(user_id, {"first_name": "Следующий", "last_name": "Фаворит",
-                                            "profile_link": "https://vk.com/id4"})
+        if candidate:
+            show_candidate_info(user_id, candidate)
+            return True
+        else:
+            deleted_count = adapter.delete_viewed_candidates(user_id)
+            if deleted_count > 0:
+                print(f"Удалено {deleted_count} просмотренных кандидатов")
 
-                elif "удалить фаворита" in text.lower():
-                    write_msg(user_id, "🗑️ Фаворит удален!", get_favorites_keyboard())
-                    show_favorite(user_id)
+            write_msg(user_id, SEARCHING_VK, get_profiles_keyboard())
 
-                elif "следующий в чс" in text.lower():
-                    show_blacklist(user_id, {"first_name": "Следующий", "last_name": "Черный список",
-                                             "profile_link": "https://vk.com/id5"})
+            saved_count, message = search_and_save_candidates_from_api(user_id)
 
-                elif "удалить из чс" in text.lower():
-                    write_msg(user_id, "🗑️ Удалено из черного списка!", get_blacklist_keyboard())
-                    show_blacklist(user_id)
-
-                elif "главное меню" in text.lower():
-                    if user_id in temp_user_data:
-                        del temp_user_data[user_id]
-                    if user_id in edit_user_data:
-                        del edit_user_data[user_id]
-                    write_msg(user_id, welcome_message, get_main_keyboard())
-
-                elif text.lower() == "назад":
-                    if user_id in temp_user_data:
-                        del temp_user_data[user_id]
-                    if user_id in edit_user_data:
-                        del edit_user_data[user_id]
-                    write_msg(user_id, welcome_message, get_main_keyboard())
-
-                elif "информация" in text.lower():
-                    message = (
-                        "📋 Статистика:\n"
-                        "• Непросмотренных кандидатов: 10\n"
-                        "• В избранном: 5\n"
-                        "• В черном списке: 3\n\n"
-                        "📊 Параметры поиска:\n"
-                        "• Возраст: 25 лет\n"
-                        "• Пол: Мужской\n"
-                        "• Город: Москва"
-                    )
-                    write_msg(user_id, message, get_profiles_keyboard())
-
+            if saved_count > 0:
+                candidate = adapter.get_next_candidate(user_id)
+                if candidate:
+                    show_candidate_info(user_id, candidate)
+                    return True
                 else:
-                    if user_id in temp_user_data or user_id in edit_user_data:
-                        write_msg(user_id, "Завершите регистрацию/редактирование или введите 'отмена'")
-                    else:
-                        write_msg(user_id, welcome_message, get_main_keyboard())
+                    write_msg(user_id, UNABLE_TO_SHOW, get_main_keyboard())
+                    return False
+            else:
+                write_msg(user_id, f"😔 {message}\n\nПопробуйте изменить параметры поиска.", get_main_keyboard())
+                return False
 
-        time.sleep(0.1)
+    def show_candidate_info(user_id, candidate_data):
+        """Показать информацию о кандидате"""
+        if not candidate_data:
+            write_msg(user_id, NO_CANDIDATE_DATA, get_main_keyboard())
+            return
+
+        message = CANDIDATE_INFO.format(
+            candidate_data['first_name'],
+            candidate_data['last_name'],
+            candidate_data['profile_link']
+        )
+
+        attachments = []
+        for photo in candidate_data.get('photos', [])[:3]:
+            attachments.append(f"photo{photo['owner_id']}_{photo['vk_photo_id']}")
+
+        if attachments:
+            write_msg(user_id, message, get_profiles_keyboard(), ','.join(attachments))
+        else:
+            write_msg(user_id, message + NO_PHOTO_WARNING, get_profiles_keyboard())
+
+    def show_favorite_info(user_id, favorite_data):
+        """Показать информацию о фаворите"""
+        if not favorite_data:
+            write_msg(user_id, FAVORITES_ALL_VIEWED, get_favorites_keyboard())
+            return
+
+        message = FAVORITE_INFO.format(
+            favorite_data['first_name'],
+            favorite_data['last_name'],
+            favorite_data['profile_link']
+        )
+
+        attachments = []
+        for photo in favorite_data.get('photos', [])[:3]:
+            attachments.append(f"photo{photo['owner_id']}_{photo['vk_photo_id']}")
+
+        if attachments:
+            write_msg(user_id, message, get_favorites_keyboard(), ','.join(attachments))
+        else:
+            write_msg(user_id, message + NO_PHOTO_WARNING, get_favorites_keyboard())
+
+    def show_blacklist_info(user_id, blacklist_data):
+        """Показать информацию о кандидате в черном списке"""
+        if not blacklist_data:
+            write_msg(user_id, BLACKLIST_EMPTY_FULL, get_blacklist_keyboard())
+            return
+
+        message = BLACKLIST_INFO.format(
+            blacklist_data['first_name'],
+            blacklist_data['last_name'],
+            blacklist_data['profile_link']
+        )
+
+        attachments = []
+        for photo in blacklist_data.get('photos', [])[:3]:
+            attachments.append(f"photo{photo['owner_id']}_{photo['vk_photo_id']}")
+
+        if attachments:
+            write_msg(user_id, message, get_blacklist_keyboard(), ','.join(attachments))
+        else:
+            write_msg(user_id, message + NO_PHOTO_WARNING, get_blacklist_keyboard())
+
+    def show_current_settings(user_id):
+        """Показать текущие настройки пользователя"""
+        user_data = adapter.get_user_data(user_id)
+        if user_data:
+            gender_text = GENDER_FEMALE if user_data.get('gender') == 1 else GENDER_MALE
+            stats = adapter.get_candidates_statistics(user_id)
+
+            message = SETTINGS_CURRENT.format(
+                user_data.get('age', AGE_NOT_SPECIFIED),
+                gender_text,
+                user_data.get('city', CITY_NOT_SPECIFIED),
+                stats['unviewed'],
+                stats['favorites'],
+                stats['blacklist']
+            )
+            write_msg(user_id, message)
+        else:
+            write_msg(user_id, SETTINGS_NO_REG, get_start_keyboard())
+
+    # Основной цикл обработки сообщений
+    while True:
+        try:
+            vk_session = vk_api.VkApi(token=token_vk)
+            longpoll = VkLongPoll(vk_session, wait=25)
+            events = longpoll.check()
+
+            for event in events:
+                if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                    user_id = event.user_id
+                    text = event.text.strip()
+
+                    print(f"Сообщение от {user_id}: '{text}'")
+
+                    # Приветствие
+                    if text.lower() in ['привет', 'старт', 'начать', 'start'] or '👋' in text:
+                        write_msg(user_id, WELCOME_MESSAGE, get_start_keyboard())
+
+                    # Начало поиска / Создать анкету
+                    elif text.lower() in ['начать поиск', 'поиск', 'создать анкету'] or 'начать поиск' in text.lower():
+                        existing_user = adapter.get_user_data(user_id)
+
+                        if existing_user:
+                            adapter.reset_viewed_candidates(user_id)
+                            write_msg(user_id, REG_ALREADY_REGISTERED, get_main_keyboard())
+                        else:
+                            temp_user_data[user_id] = {"step": "возраст"}
+                            write_msg(user_id, REG_ENTER_AGE)
+
+                    # Регистрация: возраст
+                    elif user_id in temp_user_data and temp_user_data[user_id].get("step") == "возраст":
+                        if text.lower().isdigit() and 14 <= int(text.lower()) <= 100:
+                            temp_user_data[user_id]['age'] = int(text.lower())
+                            temp_user_data[user_id]['step'] = "город"
+                            write_msg(user_id, REG_ENTER_CITY)
+                        else:
+                            write_msg(user_id, REG_INVALID_AGE)
+
+                    # Регистрация: город
+                    elif user_id in temp_user_data and temp_user_data[user_id].get("step") == "город":
+                        if len(text) >= 2:
+                            temp_user_data[user_id]['city'] = text
+                            temp_user_data[user_id]['step'] = "пол"
+                            write_msg(user_id, REG_ENTER_GENDER)
+                        else:
+                            write_msg(user_id, REG_INVALID_CITY)
+
+                    # Регистрация: пол и сохранение
+                    elif user_id in temp_user_data and temp_user_data[user_id].get("step") == "пол":
+                        if text.lower() in ['1', '2']:
+                            user_data = {
+                                "vk_user_id": user_id,
+                                "age": temp_user_data[user_id]['age'],
+                                "gender": int(text.lower()),
+                                "city": temp_user_data[user_id]['city']
+                            }
+
+                            adapter.save_or_update_user(user_data)
+                            del temp_user_data[user_id]
+
+                            gender_text = GENDER_FEMALE if int(text.lower()) == 1 else GENDER_MALE
+                            write_msg(user_id,
+                                      REG_COMPLETE.format(
+                                          user_data['age'],
+                                          user_data['city'],
+                                          gender_text
+                                      ),
+                                      get_main_keyboard())
+                        else:
+                            write_msg(user_id, REG_INVALID_GENDER)
+
+                    # Смотреть анкеты - с эмодзи
+                    elif text == '👀 Смотреть анкеты' or text.lower() == 'смотреть анкеты':
+                        existing_user = adapter.get_user_data(user_id)
+
+                        if not existing_user:
+                            write_msg(user_id, NEED_SETTINGS, get_start_keyboard())
+                            continue
+
+                        show_candidate_from_db_or_api(user_id)
+
+                    # Кнопка "Нравится" - с эмодзи
+                    elif text == '❤️ Нравится' or text.lower() == 'нравится':
+                        current = adapter.get_current_candidate(user_id)
+                        if current:
+                            adapter.add_to_favorites(user_id, current['vk_user_id'])
+                            write_msg(user_id, ADDED_TO_FAVORITES, get_profiles_keyboard())
+                            show_candidate_from_db_or_api(user_id)
+                        else:
+                            write_msg(user_id, SELECT_CANDIDATE_FIRST, get_main_keyboard())
+
+                    # Кнопка "В черный список" - с эмодзи
+                    elif text == '🚫 В черный список' or text.lower() == 'в черный список':
+                        current = adapter.get_current_candidate(user_id)
+                        if current:
+                            adapter.add_to_blacklist(user_id, current['vk_user_id'])
+                            write_msg(user_id, ADDED_TO_BLACKLIST, get_profiles_keyboard())
+                            show_candidate_from_db_or_api(user_id)
+                        else:
+                            write_msg(user_id, SELECT_CANDIDATE_FIRST, get_main_keyboard())
+
+                    # Кнопка "Следующий" - с эмодзи (только для обычных кандидатов)
+                    elif text == '➡️ Следующий' or text.lower() == 'следующий':
+                        current = adapter.get_current_candidate(user_id)
+                        if current:
+                            adapter.mark_candidate_as_viewed(user_id, current['vk_user_id'])
+                        show_candidate_from_db_or_api(user_id)
+
+                    # Мои фавориты - с эмодзи
+                    elif text == '❤️ Мои фавориты' or text.lower() == 'мои фавориты':
+                        favorites_count = adapter.get_favorites_count(user_id)
+
+                        if favorites_count == 0:
+                            write_msg(user_id, FAVORITES_EMPTY, get_main_keyboard())
+                            continue
+
+                        adapter.reset_favorites_only_view(user_id)
+                        next_favorite = adapter.get_next_favorite(user_id)
+
+                        if next_favorite:
+                            show_favorite_info(user_id, next_favorite)
+                        else:
+                            write_msg(user_id, UNABLE_LOAD_FAVORITES, get_main_keyboard())
+
+                    # Черный список - с эмодзи
+                    elif text == '🚫 Черный список' or text.lower() == 'черный список':
+                        blacklist_count = adapter.get_blacklist_count(user_id)
+
+                        if blacklist_count == 0:
+                            write_msg(user_id, BLACKLIST_EMPTY, get_main_keyboard())
+                            continue
+
+                        adapter.reset_blacklist_only_view(user_id)
+                        next_blacklist = adapter.get_next_blacklist(user_id)
+
+                        if next_blacklist:
+                            show_blacklist_info(user_id, next_blacklist)
+                        else:
+                            write_msg(user_id, UNABLE_LOAD_BLACKLIST, get_main_keyboard())
+
+                    # НАСТРОЙКА ПАРАМЕТРОВ ПОИСКА - исправленная проверка
+                    elif text == '⚙️ Настроить параметры поиска' or text == '️⚙️ Настроить параметры поиска' or text.lower() == 'настроить параметры поиска':
+                        existing_user = adapter.get_user_data(user_id)
+                        if not existing_user:
+                            write_msg(user_id, SETTINGS_NO_REG, get_start_keyboard())
+                            continue
+
+                        edit_user_data[user_id] = {'step': 'show_settings'}
+                        show_current_settings(user_id)
+
+                    # КНОПКИ В РАЗДЕЛЕ ФАВОРИТОВ
+                    # 1. Следующий фаворит - с эмодзи
+                    elif text == '➡️ Следующий фаворит' or text.lower() == 'следующий фаворит':
+                        current_favorite = adapter.get_current_favorite(user_id)
+                        if current_favorite:
+                            adapter.mark_favorite_as_viewed(user_id, current_favorite['vk_user_id'])
+
+                        next_favorite = adapter.get_next_favorite(user_id)
+                        if next_favorite:
+                            show_favorite_info(user_id, next_favorite)
+                        else:
+                            adapter.reset_favorites_only_view(user_id)
+                            next_favorite = adapter.get_next_favorite(user_id)
+                            if next_favorite:
+                                write_msg(user_id, RESTARTING_FAVORITES, get_favorites_keyboard())
+                                show_favorite_info(user_id, next_favorite)
+                            else:
+                                write_msg(user_id, NO_FAVORITES, get_main_keyboard())
+
+                    # 2. Удалить фаворита - с эмодзи
+                    elif text == '🗑️ Удалить фаворита' or text.lower() == 'удалить фаворита':
+                        current_favorite = adapter.get_current_favorite(user_id)
+                        if not current_favorite:
+                            write_msg(user_id, SELECT_FAVORITE_TO_DELETE, get_favorites_keyboard())
+                            continue
+
+                        adapter.remove_from_favorites(user_id, current_favorite['vk_user_id'])
+                        write_msg(user_id, REMOVED_FROM_FAVORITES, get_favorites_keyboard())
+
+                        next_favorite = adapter.get_next_favorite(user_id)
+                        if next_favorite:
+                            show_favorite_info(user_id, next_favorite)
+                        else:
+                            favorites_count = adapter.get_favorites_count(user_id)
+                            if favorites_count > 0:
+                                adapter.reset_favorites_only_view(user_id)
+                                next_favorite = adapter.get_next_favorite(user_id)
+                                if next_favorite:
+                                    write_msg(user_id, RESTARTING_FAVORITES, get_favorites_keyboard())
+                                    show_favorite_info(user_id, next_favorite)
+                                else:
+                                    write_msg(user_id, ALL_FAVORITES_DELETED, get_main_keyboard())
+                            else:
+                                write_msg(user_id, ALL_FAVORITES_DELETED_EMPTY, get_main_keyboard())
+
+                    # КНОПКИ В РАЗДЕЛЕ ЧЕРНОГО СПИСКА
+                    # 1. Следующий в ЧС - с эмодзи
+                    elif text == '➡️ Следующий в ЧС' or text.lower() == 'следующий в чс':
+                        current_blacklist = adapter.get_current_blacklist(user_id)
+                        if current_blacklist:
+                            adapter.mark_blacklist_as_viewed(user_id, current_blacklist['vk_user_id'])
+
+                        next_blacklist = adapter.get_next_blacklist(user_id)
+                        if next_blacklist:
+                            show_blacklist_info(user_id, next_blacklist)
+                        else:
+                            adapter.reset_blacklist_only_view(user_id)
+                            next_blacklist = adapter.get_next_blacklist(user_id)
+                            if next_blacklist:
+                                write_msg(user_id, RESTARTING_BLACKLIST, get_blacklist_keyboard())
+                                show_blacklist_info(user_id, next_blacklist)
+                            else:
+                                write_msg(user_id, BLACKLIST_EMPTY_FULL, get_main_keyboard())
+
+                    # 2. Удалить из ЧС - с эмодзи
+                    elif text == '🗑️ Удалить из ЧС' or text.lower() == 'удалить из чс':
+                        current_blacklist = adapter.get_current_blacklist(user_id)
+                        if not current_blacklist:
+                            write_msg(user_id, SELECT_BLACKLIST_TO_DELETE, get_blacklist_keyboard())
+                            continue
+
+                        adapter.remove_from_blacklist(user_id, current_blacklist['vk_user_id'])
+                        write_msg(user_id, REMOVED_FROM_BLACKLIST, get_blacklist_keyboard())
+
+                        next_blacklist = adapter.get_next_blacklist(user_id)
+                        if next_blacklist:
+                            show_blacklist_info(user_id, next_blacklist)
+                        else:
+                            blacklist_count = adapter.get_blacklist_count(user_id)
+                            if blacklist_count > 0:
+                                adapter.reset_blacklist_only_view(user_id)
+                                next_blacklist = adapter.get_next_blacklist(user_id)
+                                if next_blacklist:
+                                    write_msg(user_id, RESTARTING_BLACKLIST, get_blacklist_keyboard())
+                                    show_blacklist_info(user_id, next_blacklist)
+                                else:
+                                    write_msg(user_id, ALL_BLACKLIST_DELETED, get_main_keyboard())
+                            else:
+                                write_msg(user_id, ALL_BLACKLIST_DELETED_EMPTY, get_main_keyboard())
+
+                    # Редактирование параметров - когда пользователь уже в режиме редактирования
+                    elif (user_id in edit_user_data and
+                          edit_user_data[user_id]['step'] == 'show_settings'):
+                        if text.lower() == '1' or 'возраст' in text.lower():
+                            edit_user_data[user_id] = {'step': 'edit_age'}
+                            write_msg(user_id, SETTINGS_ENTER_NEW_AGE)
+                        elif text.lower() == '2' or 'пол' in text.lower():
+                            edit_user_data[user_id] = {'step': 'edit_gender'}
+                            write_msg(user_id, SETTINGS_ENTER_NEW_GENDER)
+                        elif text.lower() == '3' or 'город' in text.lower():
+                            edit_user_data[user_id] = {'step': 'edit_city'}
+                            write_msg(user_id, SETTINGS_ENTER_NEW_CITY)
+                        elif text.lower() == '4' or 'отмена' in text.lower():
+                            del edit_user_data[user_id]
+                            write_msg(user_id, SETTINGS_CANCELLED, get_main_keyboard())
+                        else:
+                            write_msg(user_id, SETTINGS_CHOOSE_PARAM)
+
+                    # Редактирование возраста
+                    elif (user_id in edit_user_data and
+                          edit_user_data[user_id]['step'] == 'edit_age'):
+                        if text.lower().isdigit() and 14 <= int(text.lower()) <= 100:
+                            deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
+                            user_data = adapter.get_user_data(user_id)
+                            user_data['age'] = int(text.lower())
+                            adapter.save_or_update_user(user_data)
+                            del edit_user_data[user_id]
+                            write_msg(user_id,
+                                      SETTINGS_AGE_UPDATED.format(text.lower(), deleted_count),
+                                      get_main_keyboard())
+                        else:
+                            write_msg(user_id, REG_INVALID_AGE)
+
+                    # Редактирование пола
+                    elif (user_id in edit_user_data and
+                          edit_user_data[user_id]['step'] == 'edit_gender'):
+                        if text.lower() in ['1', '2']:
+                            deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
+                            user_data = adapter.get_user_data(user_id)
+                            user_data['gender'] = int(text.lower())
+                            adapter.save_or_update_user(user_data)
+                            del edit_user_data[user_id]
+                            gender_text = GENDER_FEMALE if text.lower() == '1' else GENDER_MALE
+                            write_msg(user_id,
+                                      SETTINGS_GENDER_UPDATED.format(gender_text, deleted_count),
+                                      get_main_keyboard())
+                        else:
+                            write_msg(user_id, REG_INVALID_GENDER)
+
+                    # Редактирование города
+                    elif (user_id in edit_user_data and
+                          edit_user_data[user_id]['step'] == 'edit_city'):
+                        if len(text) >= 2:
+                            deleted_count = adapter.delete_candidates_on_parameter_change(user_id)
+                            user_data = adapter.get_user_data(user_id)
+                            user_data['city'] = text
+                            adapter.save_or_update_user(user_data)
+                            del edit_user_data[user_id]
+                            write_msg(user_id,
+                                      SETTINGS_CITY_UPDATED.format(text, deleted_count),
+                                      get_main_keyboard())
+                        else:
+                            write_msg(user_id, REG_INVALID_CITY)
+
+                    # Кнопка "Главное меню" - с эмодзи
+                    elif text == '🏠 Главное меню' or text.lower() == 'главное меню':
+                        if user_id in temp_user_data:
+                            del temp_user_data[user_id]
+                        if user_id in edit_user_data:
+                            del edit_user_data[user_id]
+                        write_msg(user_id, MAIN_MENU, get_main_keyboard())
+
+                    # Назад - с эмодзи
+                    elif text == 'Назад' or text.lower() == 'назад':
+                        if user_id in temp_user_data:
+                            del temp_user_data[user_id]
+                        if user_id in edit_user_data:
+                            del edit_user_data[user_id]
+                        write_msg(user_id, BACK_TO_MAIN, get_main_keyboard())
+
+                    # Информация о поиске - с эмодзи
+                    elif text == '📋 Информация о поиске' or text.lower() == 'информация о поиске':
+                        existing_user = adapter.get_user_data(user_id)
+                        if existing_user:
+                            stats = adapter.get_candidates_statistics(user_id)
+                            gender_text = GENDER_FEMALE if existing_user.get('gender') == 1 else GENDER_MALE
+
+                            message = STATISTICS_INFO.format(
+                                stats['unviewed'],
+                                stats['favorites'],
+                                stats['blacklist'],
+                                existing_user.get('age', AGE_NOT_SPECIFIED),
+                                gender_text,
+                                existing_user.get('city', CITY_NOT_SPECIFIED)
+                            )
+                            write_msg(user_id, message, get_main_keyboard())
+                        else:
+                            write_msg(user_id, STATISTICS_NO_REG, get_start_keyboard())
+
+                    # Неизвестная команда для зарегистрированных пользователей
+                    elif adapter.get_user_data(user_id):
+                        if user_id in temp_user_data or user_id in edit_user_data:
+                            write_msg(user_id, COMPLETE_REG_OR_CANCEL)
+                        else:
+                            write_msg(user_id, CHOOSE_ACTION, get_main_keyboard())
+
+                    # Неизвестная команда для незарегистрированных пользователей
+                    else:
+                        write_msg(user_id, START_MESSAGE, get_start_keyboard())
+
+            time.sleep(0.1)
+
+        except (vk_api.exceptions.ApiHttpError, vk_api.exceptions.ApiError) as e:
+            print(f"Ошибка VK API: {e}. Переподключение через 3 секунды...")
+            time.sleep(3)
+
+        except KeyboardInterrupt:
+            print("\nБот остановлен пользователем")
+            sys.exit(0)
+
+        except Exception as e:
+            print(f"Неожиданная ошибка: {e}. Продолжение работы через 5 секунд...")
+            import traceback
+            traceback.print_exc()
+            time.sleep(5)

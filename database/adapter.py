@@ -160,44 +160,23 @@ class DatabaseAdapter:
             'photos': photos_data
         }
 
-    def _reset_current_statuses(self, searcher_vk_id: int):
-        """Сбросить статус 'текущий' у всех кандидатов пользователя"""
-        user = self._get_user_by_vk_id(searcher_vk_id)
-        if not user:
-            return
-
-        # Находим все связи где есть статус CURRENT
-        links_to_update = self.session.execute(
-            sq.select(candidate_to_user).where(
-                sq.and_(
-                    candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.view_status == self.STATUS_CURRENT
-                )
-            )
-        ).fetchall()
-
-        for link in links_to_update:
-            link_dict = link._asdict()
-            self.session.execute(
-                candidate_to_user.update().where(
-                    sq.and_(
-                        candidate_to_user.c.candidate_id == link_dict['candidate_id'],
-                        candidate_to_user.c.searcher_vk_id == user.id
-                    )
-                ).values(
-                    view_status=self.STATUS_VIEWED
-                )
-            )
-
     def get_next_candidate(self, searcher_vk_id: int) -> Optional[dict]:
         """Получить следующего кандидата"""
         user = self._get_user_by_vk_id(searcher_vk_id)
         if not user:
             return None
 
-        self._reset_current_statuses(searcher_vk_id)
+        # Сначала сбрасываем статус CURRENT у всех кандидатов пользователя
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.view_status == self.STATUS_CURRENT
+                )
+            ).values(view_status=self.STATUS_VIEWED)
+        )
 
-        # Ищем кандидата с нужными статусами через связующую таблицу
+        # Ищем кандидата с нужными статусами
         query = (
             sq.select(Candidate)
             .join(candidate_to_user, Candidate.id == candidate_to_user.c.candidate_id)
@@ -205,10 +184,12 @@ class DatabaseAdapter:
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
                     candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED,
-                    candidate_to_user.c.favorite_status.in_(False),
-                    candidate_to_user.c.blacklist_status.in_(False)
+                    candidate_to_user.c.favorite_status == False,
+                    candidate_to_user.c.blacklist_status == False
                 )
             )
+            .order_by(Candidate.id)
+            .limit(1)
         )
 
         candidate = self.session.execute(query).scalar()
@@ -223,9 +204,7 @@ class DatabaseAdapter:
                     candidate_to_user.c.candidate_id == candidate.id,
                     candidate_to_user.c.searcher_vk_id == user.id
                 )
-            ).values(
-                view_status=self.STATUS_CURRENT
-            )
+            ).values(view_status=self.STATUS_CURRENT)
         )
 
         self.session.commit()
@@ -310,6 +289,7 @@ class DatabaseAdapter:
                     getattr(candidate_to_user.c, status_field) == status_value
                 )
             )
+            .order_by(Candidate.id)
         )
 
         candidates = self.session.execute(query).scalars().all()
@@ -349,8 +329,8 @@ class DatabaseAdapter:
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
                     candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED,
-                    candidate_to_user.c.favorite_status.in_(False),
-                    candidate_to_user.c.blacklist_status.in_(False)
+                    candidate_to_user.c.favorite_status == False,
+                    candidate_to_user.c.blacklist_status == False
                 )
             )
         )
@@ -382,13 +362,14 @@ class DatabaseAdapter:
             if not user:
                 return 0
 
-            # Находим связи для удаления
+            # Находим ID кандидатов для удаления
             links_to_delete = self.session.execute(
-                sq.select(candidate_to_user).where(
+                sq.select(candidate_to_user.c.candidate_id)
+                .where(
                     sq.and_(
                         candidate_to_user.c.searcher_vk_id == user.id,
-                        candidate_to_user.c.favorite_status.in_(False),
-                        candidate_to_user.c.blacklist_status.in_(False)
+                        candidate_to_user.c.favorite_status == False,
+                        candidate_to_user.c.blacklist_status == False
                     )
                 )
             ).fetchall()
@@ -397,14 +378,14 @@ class DatabaseAdapter:
             candidate_ids_to_check = []
 
             for link in links_to_delete:
-                link_dict = link._asdict()
-                candidate_ids_to_check.append(link_dict['candidate_id'])
+                candidate_id = link[0]
+                candidate_ids_to_check.append(candidate_id)
 
                 # Удаляем связь
                 self.session.execute(
                     candidate_to_user.delete().where(
                         sq.and_(
-                            candidate_to_user.c.candidate_id == link_dict['candidate_id'],
+                            candidate_to_user.c.candidate_id == candidate_id,
                             candidate_to_user.c.searcher_vk_id == user.id
                         )
                     )
@@ -433,26 +414,6 @@ class DatabaseAdapter:
             print(f"Ошибка при удалении кандидатов: {e}")
             self.session.rollback()
             return 0
-
-    def get_candidates_count_to_delete(self, user_id: int) -> int:
-        """Получить количество кандидатов, которые будут удалены при изменении параметров"""
-        user = self._get_user_by_vk_id(user_id)
-        if not user:
-            return 0
-
-        query = (
-            sq.select(sq.func.count())
-            .select_from(candidate_to_user)
-            .where(
-                sq.and_(
-                    candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status.in_(False),
-                    candidate_to_user.c.blacklist_status.in_(False)
-                )
-            )
-        )
-
-        return self.session.execute(query).scalar()
 
     def get_current_candidate(self, user_id: int) -> Optional[dict]:
         """Получить текущего просматриваемого кандидата"""
@@ -537,7 +498,7 @@ class DatabaseAdapter:
             .where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status.in_(True)
+                    candidate_to_user.c.favorite_status == True
                 )
             )
         )
@@ -556,54 +517,12 @@ class DatabaseAdapter:
             .where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.blacklist_status.in_(True)
+                    candidate_to_user.c.blacklist_status == True
                 )
             )
         )
 
         return self.session.execute(query).scalar()
-
-    def delete_candidate_completely(self, user_id: int, candidate_vk_id: int) -> bool:
-        """Полностью удалить кандидата (с фотографиями)"""
-        user = self._get_user_by_vk_id(user_id)
-        candidate = self._get_candidate_by_vk_id(candidate_vk_id)
-
-        if not user or not candidate:
-            return False
-
-        try:
-            # Удаляем связь пользователя с кандидатом
-            self.session.execute(
-                candidate_to_user.delete().where(
-                    sq.and_(
-                        candidate_to_user.c.candidate_id == candidate.id,
-                        candidate_to_user.c.searcher_vk_id == user.id
-                    )
-                )
-            )
-
-            # Проверяем, не используется ли кандидат другими пользователями
-            other_links = self.session.execute(
-                sq.select(candidate_to_user).where(
-                    candidate_to_user.c.candidate_id == candidate.id
-                )
-            ).fetchall()
-
-            # Если кандидат не связан ни с одним пользователем, удаляем его и его фото
-            if not other_links:
-                self.session.query(Photo).filter(
-                    Photo.candidate_id == candidate.id
-                ).delete()
-
-                self.session.delete(candidate)
-
-            self.session.commit()
-            return True
-
-        except Exception as e:
-            print(f"Ошибка при удалении кандидата: {e}")
-            self.session.rollback()
-            return False
 
     def get_candidates_statistics(self, user_id: int) -> dict:
         """Получить статистику кандидатов"""
@@ -623,75 +542,166 @@ class DatabaseAdapter:
         if not user:
             return 0
 
-        # Находим связи для удаления
-        links_to_delete = self.session.execute(
-            sq.select(candidate_to_user, Candidate)
-            .join(Candidate, candidate_to_user.c.candidate_id == Candidate.id)
-            .where(
-                sq.and_(
-                    candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.view_status == self.STATUS_VIEWED,
-                    candidate_to_user.c.favorite_status.in_(False),
-                    candidate_to_user.c.blacklist_status.in_(False)
-                )
-            )
-        ).fetchall()
-
-        deleted_count = 0
-        candidate_ids_to_check = []
-
-        for link, candidate in links_to_delete:
-            candidate_ids_to_check.append(candidate.id)
-
-            # Удаляем связь
-            self.session.execute(
-                candidate_to_user.delete().where(
+        try:
+            links_to_delete = self.session.execute(
+                sq.select(candidate_to_user.c.candidate_id)
+                .where(
                     sq.and_(
-                        candidate_to_user.c.candidate_id == candidate.id,
-                        candidate_to_user.c.searcher_vk_id == user.id
+                        candidate_to_user.c.searcher_vk_id == user.id,
+                        candidate_to_user.c.view_status == self.STATUS_VIEWED,
+                        candidate_to_user.c.favorite_status == False,
+                        candidate_to_user.c.blacklist_status == False
                     )
-                )
-            )
-            deleted_count += 1
-
-        # Проверяем, не используется ли кандидат другими пользователями
-        for candidate_id in candidate_ids_to_check:
-            other_links = self.session.execute(
-                sq.select(candidate_to_user).where(
-                    candidate_to_user.c.candidate_id == candidate_id
                 )
             ).fetchall()
 
-            # Если кандидат не связан ни с одним пользователем, удаляем его и его фото
-            if not other_links:
-                candidate = self.session.query(Candidate).get(candidate_id)
-                if candidate:
-                    self.session.query(Photo).filter(
-                        Photo.candidate_id == candidate_id
-                    ).delete()
-                    self.session.delete(candidate)
+            deleted_count = 0
+            candidate_ids_to_check = []
 
-        self.session.commit()
-        return deleted_count
+            for link in links_to_delete:
+                candidate_id = link[0]
+                candidate_ids_to_check.append(candidate_id)
 
-    def reset_favorites_view(self, user_id: int):
-        """Сбросить статус просмотра избранного пользователя"""
-        user = self._get_user_by_vk_id(user_id)
+                self.session.execute(
+                    candidate_to_user.delete().where(
+                        sq.and_(
+                            candidate_to_user.c.candidate_id == candidate_id,
+                            candidate_to_user.c.searcher_vk_id == user.id
+                        )
+                    )
+                )
+                deleted_count += 1
+
+            for candidate_id in candidate_ids_to_check:
+                other_links = self.session.execute(
+                    sq.select(candidate_to_user).where(
+                        candidate_to_user.c.candidate_id == candidate_id
+                    )
+                ).fetchall()
+
+                if not other_links:
+                    candidate = self.session.query(Candidate).get(candidate_id)
+                    if candidate:
+                        self.session.query(Photo).filter(
+                            Photo.candidate_id == candidate_id
+                        ).delete()
+                        self.session.delete(candidate)
+
+            self.session.commit()
+            return deleted_count
+        except Exception as e:
+            print(f"Ошибка в delete_viewed_candidates: {e}")
+            self.session.rollback()
+            return 0
+
+
+
+    def get_next_favorite(self, searcher_vk_id: int) -> Optional[dict]:
+        """Получить следующего непросмотренного фаворита через статусы"""
+        user = self._get_user_by_vk_id(searcher_vk_id)
         if not user:
-            return
+            return None
 
+        # Сначала сбрасываем статус CURRENT у всех фаворитов этого пользователя
         self.session.execute(
             candidate_to_user.update().where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.favorite_status.in_(True)
+                    candidate_to_user.c.favorite_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_CURRENT
                 )
             ).values(view_status=self.STATUS_VIEWED)
         )
-        self.session.commit()
 
-    def reset_blacklist_view(self, user_id: int):
-        """Сбросить статус просмотра черного списка"""
+        # Ищем фаворита со статусом NOT_VIEWED
+        query = (
+            sq.select(Candidate)
+            .join(candidate_to_user, Candidate.id == candidate_to_user.c.candidate_id)
+            .where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.favorite_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED
+                )
+            )
+            .order_by(Candidate.id)
+            .limit(1)
+        )
+
+        candidate = self.session.execute(query).scalar()
+
+        if not candidate:
+            # Если все просмотрены, сбрасываем статусы и начинаем сначала
+            self.reset_favorites_only_view(searcher_vk_id)
+
+            # Повторяем поиск
+            candidate = self.session.execute(query).scalar()
+            if not candidate:
+                return None
+
+        # Помечаем найденного как текущий
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.candidate_id == candidate.id,
+                    candidate_to_user.c.searcher_vk_id == user.id
+                )
+            ).values(view_status=self.STATUS_CURRENT)
+        )
+
+        self.session.commit()
+        return self._prepare_candidate_data(candidate, searcher_vk_id)
+
+    def get_current_favorite(self, user_id: int) -> Optional[dict]:
+        """Получить текущего фаворита"""
+        user = self._get_user_by_vk_id(user_id)
+        if not user:
+            return None
+
+        query = (
+            sq.select(Candidate)
+            .join(candidate_to_user, Candidate.id == candidate_to_user.c.candidate_id)
+            .where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.favorite_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_CURRENT
+                )
+            )
+        )
+
+        candidate = self.session.execute(query).scalar()
+        if not candidate:
+            return None
+
+        return self._prepare_candidate_data(candidate, user_id)
+
+    def mark_favorite_as_viewed(self, user_id: int, candidate_vk_id: int) -> bool:
+        """Пометить фаворита как просмотренного"""
+        user = self._get_user_by_vk_id(user_id)
+        candidate = self._get_candidate_by_vk_id(candidate_vk_id)
+
+        if not user or not candidate:
+            return False
+
+        link_entry = self._get_candidate_to_user_entry(candidate.id, user.id)
+        if not link_entry or not link_entry.get('favorite_status'):
+            return False
+
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.candidate_id == candidate.id,
+                    candidate_to_user.c.searcher_vk_id == user.id
+                )
+            ).values(view_status=self.STATUS_VIEWED)
+        )
+
+        self.session.commit()
+        return True
+
+    def reset_favorites_only_view(self, user_id: int):
+        """Сбросить статус просмотра только у фаворитов"""
         user = self._get_user_by_vk_id(user_id)
         if not user:
             return
@@ -700,8 +710,130 @@ class DatabaseAdapter:
             candidate_to_user.update().where(
                 sq.and_(
                     candidate_to_user.c.searcher_vk_id == user.id,
-                    candidate_to_user.c.blacklist_status.in_(True)
+                    candidate_to_user.c.favorite_status == True
+                )
+            ).values(view_status=self.STATUS_NOT_VIEWED)
+        )
+        self.session.commit()
+
+
+
+    def get_next_blacklist(self, searcher_vk_id: int) -> Optional[dict]:
+        """Получить следующего непросмотренного в черном списке через статусы"""
+        user = self._get_user_by_vk_id(searcher_vk_id)
+        if not user:
+            return None
+
+        # Сначала сбрасываем статус CURRENT у всех в черном списке
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.blacklist_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_CURRENT
                 )
             ).values(view_status=self.STATUS_VIEWED)
+        )
+
+        # Ищем в черном списке со статусом NOT_VIEWED
+        query = (
+            sq.select(Candidate)
+            .join(candidate_to_user, Candidate.id == candidate_to_user.c.candidate_id)
+            .where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.blacklist_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_NOT_VIEWED
+                )
+            )
+            .order_by(Candidate.id)
+            .limit(1)
+        )
+
+        candidate = self.session.execute(query).scalar()
+
+        if not candidate:
+            # Если все просмотрены, сбрасываем статусы и начинаем сначала
+            self.reset_blacklist_only_view(searcher_vk_id)
+
+            # Повторяем поиск
+            candidate = self.session.execute(query).scalar()
+            if not candidate:
+                return None
+
+        # Помечаем найденного как текущий
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.candidate_id == candidate.id,
+                    candidate_to_user.c.searcher_vk_id == user.id
+                )
+            ).values(view_status=self.STATUS_CURRENT)
+        )
+
+        self.session.commit()
+        return self._prepare_candidate_data(candidate, searcher_vk_id)
+
+    def get_current_blacklist(self, user_id: int) -> Optional[dict]:
+        """Получить текущего кандидата в черном списке"""
+        user = self._get_user_by_vk_id(user_id)
+        if not user:
+            return None
+
+        query = (
+            sq.select(Candidate)
+            .join(candidate_to_user, Candidate.id == candidate_to_user.c.candidate_id)
+            .where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.blacklist_status == True,
+                    candidate_to_user.c.view_status == self.STATUS_CURRENT
+                )
+            )
+        )
+
+        candidate = self.session.execute(query).scalar()
+        if not candidate:
+            return None
+
+        return self._prepare_candidate_data(candidate, user_id)
+
+    def mark_blacklist_as_viewed(self, user_id: int, candidate_vk_id: int) -> bool:
+        """Пометить кандидата из черного списка как просмотренного"""
+        user = self._get_user_by_vk_id(user_id)
+        candidate = self._get_candidate_by_vk_id(candidate_vk_id)
+
+        if not user or not candidate:
+            return False
+
+        link_entry = self._get_candidate_to_user_entry(candidate.id, user.id)
+        if not link_entry or not link_entry.get('blacklist_status'):
+            return False
+
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.candidate_id == candidate.id,
+                    candidate_to_user.c.searcher_vk_id == user.id
+                )
+            ).values(view_status=self.STATUS_VIEWED)
+        )
+
+        self.session.commit()
+        return True
+
+    def reset_blacklist_only_view(self, user_id: int):
+        """Сбросить статус просмотра только у черного списка"""
+        user = self._get_user_by_vk_id(user_id)
+        if not user:
+            return
+
+        self.session.execute(
+            candidate_to_user.update().where(
+                sq.and_(
+                    candidate_to_user.c.searcher_vk_id == user.id,
+                    candidate_to_user.c.blacklist_status == True
+                )
+            ).values(view_status=self.STATUS_NOT_VIEWED)
         )
         self.session.commit()
